@@ -1,10 +1,11 @@
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <string.h>
 
 // debugging only
 #include <stdio.h>
+
+#include "tmmh.h"
 
 #define packed __attribute__((__packed__))
 
@@ -25,12 +26,17 @@ typedef struct packed header {
 	};
 } header;
 
+pif * pifs = NULL;
+
 header * memory = NULL;
 uint32_t memory_size_in_words = 0; // in sizeof(header) granularity!
 
 uint32_t header_size = sizeof(header);
 uint32_t granularity = sizeof(header);
 
+/**
+ * Helper functions.
+ */
 static inline void mark_end(header * end_marker)
 {
 	end_marker->in_use = false;
@@ -51,15 +57,36 @@ static inline void mark_allocated(header * h, uint32_t full_size_in_words, uint3
 	h->type = 0;
 }
 
-static void * initialize()
+/**
+ * Init.
+ */
+void tmmh_init(pif pfs[])
 {
-	if (memory != NULL) return memory;
-	// memory_size++; nope; we don't count the end marker
+	pifs = pfs;
 	memory = malloc(MAX_MEM);
-
 	mark_end(memory);
-	return memory;
 }
+
+/**
+ * Standard pifs.
+ */
+bool pif_none(void * data, int n, void ** result)
+{
+	return false;
+}
+
+bool pif_ptr(void * data, int n, void ** result)
+{
+printf("in pif_ptr\n");
+	if (n != 0) return false;
+	void ** d = (void **) data;
+	*result = *d;
+	return true;
+}
+
+/**
+ * Main allocation functionality.
+ */
 
 /** Calculates full size in 'words' (that is, sizesof(header)), including 1 for the header */
 static uint32_t calc_full_size(uint32_t size)
@@ -76,8 +103,6 @@ static inline header * next(header * h)
 
 static header * allocate_internal(uint32_t full_size_in_words, uint32_t size)
 {
-	header * memory = initialize();
-
 	header * h = memory;
 
 	while (h < &memory[memory_size_in_words])
@@ -140,7 +165,6 @@ static void release_internal(header * h)
 	header * prev_h = prev(h);
 	if (prev_h != NULL && !prev_h->in_use)
 	{
-printf("prevh\n");
 		mark_available(prev_h, prev_h->size+h->size);
 		h = prev_h;
 	}
@@ -202,21 +226,97 @@ void * reallocate (void * data, uint32_t size)
 	
 }
 
-// Buffer must be sizeof mem in words
+/**
+ * Visualize.
+ */
 void visualize(char * buffer)
 {
-	header * memory = initialize();
-
 	int i=0;
 	header * h = memory;
-	while (h->in_use || h->size != 0)
+	while (h->size != 0)
 	{
-		if (h->in_use) buffer[i++] = 'H';
-		else buffer[i++] = 'h';
+		if (h->in_use) buffer[i++] = '0' + h->type;
+		else buffer[i++] = 'v';
 		for (int j=1; j < h->size; j++)
 			buffer[i++]='.';
 
 		h = next(h);
 	}
 	buffer[i] = 0;
+}
+
+/**
+ * Types.
+ */
+void set_type(void * data, int type)
+{
+	header * h = find_header(data);
+	h->type = type;
+}
+
+int get_type(void * data)
+{
+	header * h = find_header(data);
+	return h->type;
+}
+
+/**
+ * Garbage collection.
+ */
+static void clear()
+{
+	header * h = memory;
+	while (h->size != 0)
+	{
+		h->gc_mark = false;
+		h = next(h);
+	}
+}
+
+static void mark_and_follow(void * data)
+{
+printf("%p\n", data);
+	if (data == NULL) return;
+	header * h = find_header(data);
+	if (h->gc_mark) return; // do not visit twice
+	h->gc_mark = true;
+printf("%d\n", h->type);
+printf("%d\n", h->size);
+	pif p = pifs[h->type];
+	void * ptr = NULL;
+
+	int i = 0;
+	while (p(data, i, &ptr))
+	{
+		mark_and_follow(ptr);
+		i++;
+	}
+}
+
+static void mark(void * roots[], int num_roots)
+{
+	for (int i=0; i<num_roots; i++)
+	{
+		mark_and_follow(roots[i]);
+		i++;
+	}
+}
+
+static void sweep()
+{
+	header * h = memory;
+	while (h->size != 0)
+	{
+		if (!h->gc_mark)
+			release(&h[1]);
+
+		h = next(h);
+	}
+}
+
+void tmmh_gc(void * roots[], int num_roots)
+{
+	clear();
+	mark(roots, num_roots);
+	sweep();
 }

@@ -15,19 +15,35 @@ static void assert(char * expected)
 
 int main (int argc, char ** argv)
 {
+	pif pifs[] = {
+		pif_none,
+		pif_ptr
+	};
+
+	tmmh_init(pifs);
+
 	void * val1 = allocate(7);
 	void * val2 = allocate(12);
-	/*void * val3 =*/ allocate(19);
-	assert("H..H...H.....");
+	void ** val3 = (void **) allocate(8); // allows for a max 64-bit pointer to be stored 
+	// (which keeps this test stable)
+
+	set_type(val3, 1);
+	*val3 = val1; // point to val1;
+	// TODO replace with val2 as soon as reallocate supports pointer moving
+
+	assert("0..0...1..");
 	val2 = release(val2);
-	assert("H..h...H.....");
+	assert("0..v...1..");
 	val1 = reallocate(val1, 9); // should grow into next
-	assert("H...h..H.....");
+	assert("0...v..1..");
 	void * val4 = allocate(4); // should take space from old val2
-	assert("H...H.hH.....");
+	assert("0...0.v1..");
 	void * val4_2 = reallocate(val4, 4); // should be unchanged
 	if (val4_2 != val4) printf("E!\n");
-	assert("H...H.hH.....");
+	assert("0...0.v1..");
 	val4_2 = reallocate(val4_2, 13); // should move
-	assert("H...h..H.....H....");
+	assert("0...v..1..0....");
+
+	tmmh_gc((void *) &val3, 1);
+	assert("0...v..1..v....");
 }
