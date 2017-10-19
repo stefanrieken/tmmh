@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 // debugging only
 #include <stdio.h>
@@ -73,11 +74,9 @@ static inline header * next(header * h)
 	return &h[h->size];
 }
 
-static header * allocate_internal(uint32_t size)
+static header * allocate_internal(uint32_t full_size_in_words, uint32_t size)
 {
 	header * memory = initialize();
-
-	uint32_t full_size_in_words = calc_full_size(size);
 
 	header * h = memory;
 
@@ -110,7 +109,8 @@ static header * allocate_internal(uint32_t size)
 
 void * allocate(uint32_t size)
 {
-	header * h = allocate_internal(size);
+	uint32_t full_size_in_words = calc_full_size(size);
+	header * h = allocate_internal(full_size_in_words, size);
 	return &h[1]; // location of value
 }
 
@@ -134,11 +134,8 @@ static inline header * find_header(void * data)
 	return &((header *) data)[-1];
 }
 
-// always returns null, as a service: bla = release(bla); // bla is null
-void * release(void * data)
+static void release_internal(header * h)
 {
-	header * h = find_header(data);
-
 	// merge with any previous space
 	header * prev_h = prev(h);
 	if (prev_h != NULL && !prev_h->in_use)
@@ -151,13 +148,58 @@ printf("prevh\n");
 	uint32_t total_size_in_words = h->size;
 
 	// merge with any next space
+	// (incidentally, this also works well when next is the end marker)
 	header * next_h = next(h);
 	if (!next_h->in_use)
 		total_size_in_words += next_h->size;
 
 	mark_available(h, total_size_in_words);
+}
 
+// always returns null, as a service: bla = release(bla); // bla is null
+void * release(void * data)
+{
+	header * h = find_header(data);
+	release_internal(h);
 	return NULL;
+}
+
+void * reallocate (void * data, uint32_t size)
+{
+	uint32_t full_size_in_words = calc_full_size(size);
+
+	header * h = find_header(data);
+
+	if (h->size == full_size_in_words) return data; // no change
+	else if (h->size > full_size_in_words)
+	{
+		// shrink
+		uint32_t gap = h->size - full_size_in_words;
+		h->size = full_size_in_words;
+		mark_available(next(h), gap);
+		return data;
+	}
+	else
+	{
+		header * next_h = next(h);
+		if (!next_h->in_use && h->size + next_h->size >= full_size_in_words)
+		{
+			// grow into next
+			uint32_t gap = (h->size + next_h->size) - full_size_in_words;
+			h->size = full_size_in_words;
+			mark_available(next(h), gap);
+			return data;
+		}
+		else
+		{
+			// move
+			header * new_h = allocate_internal(full_size_in_words, size);
+			memcpy (new_h, h, h->size);
+			release_internal(h);
+			return &new_h[1];
+		}
+	}
+	
 }
 
 // Buffer must be sizeof mem in words

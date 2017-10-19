@@ -3,7 +3,7 @@ tmmh: Typed Memory Managed Heap
 
 Status
 ------
-Of all the below ambitions, allocate and release are implemented and demo'able. This was only a few hours' work, so I have good hope for the rest :-)
+Of all the below ambitions, allocate, release and realllocate are implemented and demo'able. This was only a few hours' work, so I have good hope for the rest :-)
 
 
 tmmh (pronounced: TIMMEH!!!) supports:
