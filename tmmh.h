@@ -1,6 +1,7 @@
 #include <stdbool.h>
 
-typedef bool (* pif) (void * data, int n, void ** result);
+/* That's a pointer to a void pointer, passed by reference. */
+typedef bool (* pif) (void * data, int n, void *** result);
 
 /**
  * Call tmmh_init first.
@@ -12,15 +13,15 @@ void tmmh_init(pif pifs[]);
 /**
  * Standard pifs for data containing no pointers at all, resp. data of type 'pointer'.
  */
-extern bool pif_none(void * data, int n, void ** result);
-extern bool pif_ptr(void * data, int n, void ** result);
+extern bool pif_none(void * data, int n, void *** result);
+extern bool pif_ptr(void * data, int n, void *** result);
 
 /**
  * The core allocation functions
  */
-extern void * allocate(uint32_t size);
-extern void * release(void * data);
-extern void * reallocate (void * data, uint32_t size);
+extern void * allocate(uint32_t size, bool preserve_when_gc);
+extern void * release(void * data, bool clear_references);
+extern void * reallocate (void * data, uint32_t size, bool update_references);
 
 /** Visualize memory into buffer. Buffer should be at least memory size in 'words'+1 */
 extern void visualize(char * buffer);

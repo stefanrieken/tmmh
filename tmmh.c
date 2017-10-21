@@ -16,7 +16,8 @@ typedef struct packed header {
 	bool in_use : 1;
 	bool gc_mark : 1;
 	bool direct_value : 1;
-	uint8_t user_defined_flags : 3;
+	bool preserve : 1; // preserve when GC'ing
+	uint8_t user_defined_flags : 2;
 	uint8_t bytes_unused : 2;
 
 	uint8_t type : 8; // up to 256 user-definable datatypes
@@ -40,20 +41,24 @@ uint32_t granularity = sizeof(header);
 static inline void mark_end(header * end_marker)
 {
 	end_marker->in_use = false;
-	end_marker->size = 0;	
+	end_marker->size = 0;
+	end_marker->preserve = false;
 }
 
 static inline void mark_available(header * h, uint32_t full_size_in_words)
 {
 	h->in_use = false;
 	h->size = full_size_in_words;
+	h->preserve = false;
 }
 
-static inline void mark_allocated(header * h, uint32_t full_size_in_words, uint32_t size)
+static inline void mark_allocated
+(header * h, uint32_t full_size_in_words, uint32_t size)
 {
 	h->in_use = true;
 	h->bytes_unused = full_size_in_words - header_size - size;
 	h->size = full_size_in_words;
+	// h->preserve = preserve_from_gc; // should be done by caller
 	h->type = 0;
 }
 
@@ -70,16 +75,16 @@ void tmmh_init(pif pfs[])
 /**
  * Standard pifs.
  */
-bool pif_none(void * data, int n, void ** result)
+bool pif_none(void * data, int n, void *** result)
 {
 	return false;
 }
 
-bool pif_ptr(void * data, int n, void ** result)
+bool pif_ptr(void * data, int n, void *** result)
 {
 	if (n != 0) return false;
 	void ** d = (void **) data;
-	*result = *d;
+	*result = d;
 	return true;
 }
 
@@ -100,7 +105,7 @@ static inline header * next(header * h)
 	return &h[h->size];
 }
 
-static header * allocate_internal(uint32_t full_size_in_words, uint32_t size)
+static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 {
 	header * h = memory;
 
@@ -131,10 +136,11 @@ static header * allocate_internal(uint32_t full_size_in_words, uint32_t size)
 	return h;
 }
 
-void * allocate(uint32_t size)
+void * allocate(uint32_t size, bool preserve_from_gc)
 {
 	uint32_t full_size_in_words = calc_full_size(size);
 	header * h = allocate_internal(full_size_in_words, size);
+	h->preserve = preserve_from_gc;
 	return &h[1]; // location of value
 }
 
@@ -179,15 +185,34 @@ static void release_internal(header * h)
 	mark_available(h, total_size_in_words);
 }
 
+void replace_pointer(void * a, void * b)
+{
+	header * h = memory;
+	while (h->size != 0)
+	{
+		if (h->in_use && h->size > 1) // no need if only a header
+		{
+			pif p = pifs[h->type];
+			void ** ptr = NULL;
+
+			int i = 0;
+			while (p(&h[1], i++, &ptr))
+				if (*ptr == a) *ptr = b;
+		}
+		h = next(h);
+	}
+}
+
 // always returns null, as a service: bla = release(bla); // bla is null
-void * release(void * data)
+void * release(void * data, bool clear_references)
 {
 	header * h = find_header(data);
 	release_internal(h);
+	if (clear_references) replace_pointer(data, NULL);
 	return NULL;
 }
 
-void * reallocate (void * data, uint32_t size)
+void * reallocate_internal (void * data, uint32_t size)
 {
 	uint32_t full_size_in_words = calc_full_size(size);
 
@@ -223,6 +248,13 @@ void * reallocate (void * data, uint32_t size)
 		}
 	}
 	
+}
+
+void * reallocate (void * data, uint32_t size, bool update_references)
+{
+	void * new_data = reallocate_internal(data, size);
+	if (update_references) replace_pointer(data, new_data);
+	return new_data;
 }
 
 /**
@@ -267,7 +299,7 @@ static void clear()
 	header * h = memory;
 	while (h->size != 0)
 	{
-		h->gc_mark = false;
+		h->gc_mark = h->preserve; // keep 'preserved' entries
 		h = next(h);
 	}
 }
@@ -281,12 +313,12 @@ static void mark_and_follow(void * data)
 	h->gc_mark = true;
 
 	pif p = pifs[h->type];
-	void * ptr = NULL;
+	void ** ptr = NULL;
 
 	int i = 0;
 	while (p(data, i, &ptr))
 	{
-		mark_and_follow(ptr);
+		mark_and_follow(*ptr);
 		i++;
 	}
 }
@@ -306,7 +338,7 @@ static void sweep()
 	while (h->size != 0)
 	{
 		if (!h->gc_mark)
-			release(&h[1]);
+			release(&h[1], false); // shouldn't need to clear references
 
 		h = next(h);
 	}

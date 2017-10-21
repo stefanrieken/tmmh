@@ -3,7 +3,8 @@ tmmh: Typed Memory Managed Heap
 
 Status
 ------
-Allocate, release, reallocate and garbage collection are implemented and demo'able.
+Allocate, release, reallocate, pointer relocation and garbage collection are implemented and demo'able.
+Yet to do is heap compression.
 
 
 About
