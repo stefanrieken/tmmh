@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <string.h>
 
-// debugging only
-#include <stdio.h>
+// printf debugging only
+//#include <stdio.h>
 
 #include "tmmh.h"
 
@@ -77,7 +77,6 @@ bool pif_none(void * data, int n, void ** result)
 
 bool pif_ptr(void * data, int n, void ** result)
 {
-printf("in pif_ptr\n");
 	if (n != 0) return false;
 	void ** d = (void **) data;
 	*result = *d;
@@ -275,13 +274,12 @@ static void clear()
 
 static void mark_and_follow(void * data)
 {
-printf("%p\n", data);
 	if (data == NULL) return;
+
 	header * h = find_header(data);
 	if (h->gc_mark) return; // do not visit twice
 	h->gc_mark = true;
-printf("%d\n", h->type);
-printf("%d\n", h->size);
+
 	pif p = pifs[h->type];
 	void * ptr = NULL;
 

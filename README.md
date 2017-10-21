@@ -5,6 +5,10 @@ Status
 ------
 Allocate, release, reallocate and garbage collection are implemented and demo'able.
 
+
+About
+-----
+
 tmmh (pronounced: TIMMEH!!!) supports:
 - Typed heap storage, with
 - User-definable types
@@ -13,6 +17,17 @@ tmmh (pronounced: TIMMEH!!!) supports:
 - Heap compression
 - Pointer relocation
 - Minimal administrative overhead targeted at >=32-bit machines (between 32 and 64 bits)
+
+
+vs. Boehm
+---------
+
+During the development of tmmh I became gradually more aware of the widely used Hans Boehm GC implementation.
+I didn't peek yet because I'm already doing this for fun anyway, and I'd like this project to grow truely independently.
+However, if there's one bit of feature envy, it's Boehm's ability to analyze the stack contents (tmmh doesn't do this at all)
+and simply keep any object that *might* be mentioned there. (Boehm does the same trick on un-typed heap data as well.)
+If I ever get to the point where stack-based pointers must be relocated reliably, I might implement the very same trick.
+For now I rely on my projects to put nothing on the C stack that isn't also accessible otherwise.
 
 
 Applications
