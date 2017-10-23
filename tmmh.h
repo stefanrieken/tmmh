@@ -5,10 +5,11 @@ typedef bool (* pif) (void * data, int n, void *** result);
 
 /**
  * Call tmmh_init first.
+ * memsize is the total size of memory used in the malloc-based implementation.
  * fips may be NULL.
  * If not, it should contain a pointer identifying function (pif) for each type number in use.
  */
-void tmmh_init(pif pifs[]);
+void tmmh_init(uint32_t memsize, pif pifs[]);
 
 /**
  * Standard pifs for data containing no pointers at all, resp. data of type 'pointer'.

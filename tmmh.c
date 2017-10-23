@@ -16,10 +16,10 @@ header * memory;
 /**
  * Init.
  */
-void tmmh_init(pif pfs[])
+void tmmh_init(uint32_t memsize, pif pfs[])
 {
 	pifs = pfs;
-	memory = malloc(MAX_MEM);
+	memory = malloc(memsize);
 	mark_end(memory);
 }
 

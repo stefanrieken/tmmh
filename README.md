@@ -3,7 +3,8 @@ tmmh: Typed Memory Managed Heap
 
 Status
 ------
-All functionality is implemented and demo'able for the 32-bits header size.
+Only the malloc-based implementation and the 32-bits header size are currently implemented.
+Within these limits, all of the below described functionality is demo'able.
 
 
 About

@@ -8,8 +8,6 @@
 #define packed __attribute__((__packed__))
 #define library_local __attribute__((visibility ("hidden")))
 
-#define MAX_MEM 400
-
 #define header_size sizeof(header)
 
 #define next(h) &h[h->size]

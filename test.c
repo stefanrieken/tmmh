@@ -20,7 +20,7 @@ int main (int argc, char ** argv)
 		pif_ptr
 	};
 
-	tmmh_init(pifs);
+	tmmh_init(400, pifs);
 
 	printf("Running test scenarios.\nLegend:\n");
 	printf("- numbers are type numbers\n");
