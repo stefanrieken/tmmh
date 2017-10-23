@@ -3,14 +3,13 @@ tmmh: Typed Memory Managed Heap
 
 Status
 ------
-Allocate, release, reallocate, pointer relocation and garbage collection are implemented and demo'able.
-Yet to do is heap compression.
+All functionality is implemented and demo'able for the 32-bits header size.
 
 
 About
 -----
 
-tmmh (pronounced: TIMMEH!!!) supports:
+tmmh (pronounced: TIMMEH!!!) provides:
 - Typed heap storage, with
 - User-definable types
 - Queryable type, size(!) and related information for any heap pointer
@@ -34,7 +33,7 @@ For now I rely on my projects to put nothing on the C stack that isn't also acce
 Applications
 ------------
 
-I would recommend tmmh in any situation requiring either or both:
+I would recommend tmmh in any lightweight(?) situation requiring either or both:
 - typed and sized values on the heap
 - garbage collection
 
@@ -121,13 +120,14 @@ Pointer Identifying Functions
 
 On initialization, the user is requested to supply a 'pointer identifying function' ('pif') for each type stored. For simple types, suitable pifs are supplied. A pif has the following signature:
 
-	bool pif_name (void * tmmh_data, int n, void ** result);
+	bool pif_name (void * tmmh_data, int n, void *** result);
 
 The simplest pif, pif_none, just returns false. It can be used for strings, integers and other values that do not hold pointers.
 
-For any other structure, dynamic or static, which holds pointers to other tmmh-allocated values, the pif should fill in the value of the nth pointer and return true, unless there is no nth pointer.
+For any other structure, dynamic or static, which holds pointers to other tmmh-allocated values, the pif should fill in the location of the nth pointer and return true, unless there is no nth pointer.
 
 The pifs are used both for marking values as reachable during garbage collection and for pointer relocation, e.g. during heap compression or when calling 'reallocate'.
+
 
 Using this library
 ------------------

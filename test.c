@@ -7,7 +7,7 @@
 static void assert(char * expected)
 {
 	char buffer[255];
-	visualize(buffer);
+	tmmh_visualize(buffer);
 	printf(buffer);
 	if (strcmp(expected,buffer) != 0) printf("E!");
 	printf("\n");
@@ -55,4 +55,32 @@ int main (int argc, char ** argv)
 
 	tmmh_gc((void *) &val3, 1); // should preserve val3 and the pointed-to val4_2
 	assert("v......1..0....");
+
+	void * val5 = allocate(25, false);
+	assert("v......1..0....0.......");
+
+	release(val4_2, true);
+	if (*val3 != NULL) printf("E! Pointer did not invalidate\n");
+	assert("v......1..v....0.......");
+
+	*val3 = val5;
+	void * old_val5 = val5;
+	void * val6 = NULL;
+	void * val7 = NULL;
+
+	void ** stack_ptrs[] = {&val1, &val2, (void **) &val3, &val4, &val4_2, &val5, &val6, &val7};
+	tmmh_compact(stack_ptrs, 7);
+	assert("1..0......."); // TODO But now we've lost all of our pointers...
+	if (*val3 != val5) printf("E! Pointer did not relocate\n");
+	if (val5 == old_val5) printf("E! Pointer did not move\n");
+
+	val6 = allocate(2, true); // permanent
+	val7 = allocate(8, false); // not permanent
+	assert("1..0.......0.0..");
+
+	void * roots[] = {val5, val7};
+	tmmh_gc(roots, 2);
+	assert("v..0.......0.0..");
+	tmmh_compact(stack_ptrs, 7);
+	assert("0.......v..0.0.."); // notice val7 does not (yet) move over permanent val6
 }

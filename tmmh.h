@@ -19,12 +19,15 @@ extern bool pif_ptr(void * data, int n, void *** result);
 /**
  * The core allocation functions
  */
-extern void * allocate(uint32_t size, bool preserve_when_gc);
+// preserve == don't GC or move when heap compressing
+// use whenever anything on stack requires survival of GC or heap compaction
+// but don't expect the heap compactor to work optimal around permenanent values
+extern void * allocate(uint32_t size, bool preserve);
 extern void * release(void * data, bool clear_references);
 extern void * reallocate (void * data, uint32_t size, bool update_references);
 
 /** Visualize memory into buffer. Buffer should be at least memory size in 'words'+1 */
-extern void visualize(char * buffer);
+extern void tmmh_visualize(char * buffer);
 
 /**
  * Types.
@@ -38,3 +41,11 @@ extern int get_type(void * data);
  * Everything that can be reached from the roots will be 'saved' from GC.
  */
 void tmmh_gc(void * roots[], int num_roots);
+
+/**
+ * Heap compaction.
+ *
+ * Updates pointers in heap; updates any pointers in stack that are given as arguments.
+ */
+void tmmh_compact(void ** stack_ptrs[], int num_prts);
+

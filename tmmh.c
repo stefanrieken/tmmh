@@ -5,62 +5,14 @@
 // printf debugging only
 //#include <stdio.h>
 
+#include "tmmh_internal.h"
 #include "tmmh.h"
 
-#define packed __attribute__((__packed__))
+pif * pifs;
 
-#define MAX_MEM 400
+header * memory;
+uint32_t memory_size_in_words; // in sizeof(header) granularity!
 
-typedef struct packed header {
-	// flags + bytes_unused
-	bool in_use : 1;
-	bool gc_mark : 1;
-	bool direct_value : 1;
-	bool preserve : 1; // preserve when GC'ing
-	uint8_t user_defined_flags : 2;
-	uint8_t bytes_unused : 2;
-
-	uint8_t type : 8; // up to 256 user-definable datatypes
-	union {
-		uint16_t size : 16; // 4-byte aligned, so multiply by 4 #ifdef MAXIMIZE_SIZE (max=256k)
-		uint16_t value : 16;  // if flagged as 'direct_value'
-	};
-} header;
-
-pif * pifs = NULL;
-
-header * memory = NULL;
-uint32_t memory_size_in_words = 0; // in sizeof(header) granularity!
-
-uint32_t header_size = sizeof(header);
-uint32_t granularity = sizeof(header);
-
-/**
- * Helper functions.
- */
-static inline void mark_end(header * end_marker)
-{
-	end_marker->in_use = false;
-	end_marker->size = 0;
-	end_marker->preserve = false;
-}
-
-static inline void mark_available(header * h, uint32_t full_size_in_words)
-{
-	h->in_use = false;
-	h->size = full_size_in_words;
-	h->preserve = false;
-}
-
-static inline void mark_allocated
-(header * h, uint32_t full_size_in_words, uint32_t size)
-{
-	h->in_use = true;
-	h->bytes_unused = full_size_in_words - header_size - size;
-	h->size = full_size_in_words;
-	// h->preserve = preserve_from_gc; // should be done by caller
-	h->type = 0;
-}
 
 /**
  * Init.
@@ -70,22 +22,6 @@ void tmmh_init(pif pfs[])
 	pifs = pfs;
 	memory = malloc(MAX_MEM);
 	mark_end(memory);
-}
-
-/**
- * Standard pifs.
- */
-bool pif_none(void * data, int n, void *** result)
-{
-	return false;
-}
-
-bool pif_ptr(void * data, int n, void *** result)
-{
-	if (n != 0) return false;
-	void ** d = (void **) data;
-	*result = d;
-	return true;
 }
 
 /**
@@ -100,16 +36,11 @@ static uint32_t calc_full_size(uint32_t size)
 	return full_size_in_words+1;
 }
 
-static inline header * next(header * h)
-{
-	return &h[h->size];
-}
-
 static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 {
 	header * h = memory;
 
-	while (h < &memory[memory_size_in_words])
+	while (h->size != 0 && h < &memory[memory_size_in_words])
 	{
 		if (!h->in_use && h->size > full_size_in_words)
 		{
@@ -136,11 +67,11 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 	return h;
 }
 
-void * allocate(uint32_t size, bool preserve_from_gc)
+void * allocate(uint32_t size, bool preserve)
 {
 	uint32_t full_size_in_words = calc_full_size(size);
 	header * h = allocate_internal(full_size_in_words, size);
-	h->preserve = preserve_from_gc;
+	h->preserve = preserve;
 	return &h[1]; // location of value
 }
 
@@ -157,11 +88,6 @@ static header * prev(header * next_h)
 	}
 
 	return NULL; // should not get here
-}
-
-static inline header * find_header(void * data)
-{
-	return &((header *) data)[-1];
 }
 
 static void release_internal(header * h)
@@ -185,7 +111,7 @@ static void release_internal(header * h)
 	mark_available(h, total_size_in_words);
 }
 
-void replace_pointer(void * a, void * b)
+library_local void update_pointers(void * old_value, void * new_value)
 {
 	header * h = memory;
 	while (h->size != 0)
@@ -197,7 +123,7 @@ void replace_pointer(void * a, void * b)
 
 			int i = 0;
 			while (p(&h[1], i++, &ptr))
-				if (*ptr == a) *ptr = b;
+				if (*ptr == old_value) *ptr = new_value;
 		}
 		h = next(h);
 	}
@@ -208,7 +134,7 @@ void * release(void * data, bool clear_references)
 {
 	header * h = find_header(data);
 	release_internal(h);
-	if (clear_references) replace_pointer(data, NULL);
+	if (clear_references) update_pointers(data, NULL);
 	return NULL;
 }
 
@@ -242,7 +168,9 @@ void * reallocate_internal (void * data, uint32_t size)
 		{
 			// move
 			header * new_h = allocate_internal(full_size_in_words, size);
-			memcpy (new_h, h, h->size);
+			memcpy (new_h, h, h->size * header_size);
+			new_h->size = full_size_in_words;
+			new_h->bytes_unused = (header_size - (size % header_size)) % header_size;
 			release_internal(h);
 			return &new_h[1];
 		}
@@ -253,100 +181,7 @@ void * reallocate_internal (void * data, uint32_t size)
 void * reallocate (void * data, uint32_t size, bool update_references)
 {
 	void * new_data = reallocate_internal(data, size);
-	if (update_references) replace_pointer(data, new_data);
+	if (update_references) update_pointers(data, new_data);
 	return new_data;
 }
 
-/**
- * Visualize.
- */
-void visualize(char * buffer)
-{
-	int i=0;
-	header * h = memory;
-	while (h->size != 0)
-	{
-		if (h->in_use) buffer[i++] = '0' + h->type;
-		else buffer[i++] = 'v';
-		for (int j=1; j < h->size; j++)
-			buffer[i++]='.';
-
-		h = next(h);
-	}
-	buffer[i] = 0;
-}
-
-/**
- * Types.
- */
-void set_type(void * data, int type)
-{
-	header * h = find_header(data);
-	h->type = type;
-}
-
-int get_type(void * data)
-{
-	header * h = find_header(data);
-	return h->type;
-}
-
-/**
- * Garbage collection.
- */
-static void clear()
-{
-	header * h = memory;
-	while (h->size != 0)
-	{
-		h->gc_mark = h->preserve; // keep 'preserved' entries
-		h = next(h);
-	}
-}
-
-static void mark_and_follow(void * data)
-{
-	if (data == NULL) return;
-
-	header * h = find_header(data);
-	if (h->gc_mark) return; // do not visit twice
-	h->gc_mark = true;
-
-	pif p = pifs[h->type];
-	void ** ptr = NULL;
-
-	int i = 0;
-	while (p(data, i, &ptr))
-	{
-		mark_and_follow(*ptr);
-		i++;
-	}
-}
-
-static void mark(void * roots[], int num_roots)
-{
-	for (int i=0; i<num_roots; i++)
-	{
-		mark_and_follow(roots[i]);
-		i++;
-	}
-}
-
-static void sweep()
-{
-	header * h = memory;
-	while (h->size != 0)
-	{
-		if (!h->gc_mark)
-			release(&h[1], false); // shouldn't need to clear references
-
-		h = next(h);
-	}
-}
-
-void tmmh_gc(void * roots[], int num_roots)
-{
-	clear();
-	mark(roots, num_roots);
-	sweep();
-}
