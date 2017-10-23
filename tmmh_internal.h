@@ -34,8 +34,6 @@ typedef struct packed header {
 extern pif * pifs;
 
 extern header * memory;
-extern uint32_t memory_size_in_words; // in sizeof(header) granularity!
-
 
 /**
  * Inline helper functions.

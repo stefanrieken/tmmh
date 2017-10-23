@@ -11,7 +11,6 @@
 pif * pifs;
 
 header * memory;
-uint32_t memory_size_in_words; // in sizeof(header) granularity!
 
 
 /**
@@ -40,7 +39,7 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 {
 	header * h = memory;
 
-	while (h->size != 0 && h < &memory[memory_size_in_words])
+	while (h->size != 0)
 	{
 		if (!h->in_use && h->size > full_size_in_words)
 		{
@@ -60,9 +59,8 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 	// nothing found; at end; allocate as new
 	h = next(h);
 	mark_allocated(h, full_size_in_words, size);
-	memory_size_in_words += full_size_in_words;
 	// and mark new end
-	mark_end(&memory[memory_size_in_words]);
+	mark_end(next(h));
 
 	return h;
 }
@@ -80,7 +78,7 @@ static header * prev(header * next_h)
 	header * h = memory;
 	if (h == next_h) return NULL; // no previous
 
-	while (h < &memory[memory_size_in_words])
+	while (h->size != 0)
 	{
 		if (next(h) == next_h)
 			return h;

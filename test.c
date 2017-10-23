@@ -67,20 +67,27 @@ int main (int argc, char ** argv)
 	void * old_val5 = val5;
 	void * val6 = NULL;
 	void * val7 = NULL;
+	void * val8 = NULL;
+	void * val9 = NULL;
 
-	void ** stack_ptrs[] = {&val1, &val2, (void **) &val3, &val4, &val4_2, &val5, &val6, &val7};
-	tmmh_compact(stack_ptrs, 7);
-	assert("1..0......."); // TODO But now we've lost all of our pointers...
+	void ** stack_ptrs[] = {&val1, &val2, (void **) &val3, &val4, &val4_2, &val5, &val6, &val7, &val8, &val9};
+	tmmh_compact(stack_ptrs, 9);
+	assert("1..0.......");
 	if (*val3 != val5) printf("E! Pointer did not relocate\n");
 	if (val5 == old_val5) printf("E! Pointer did not move\n");
 
 	val6 = allocate(2, true); // permanent
-	val7 = allocate(8, false); // not permanent
-	assert("1..0.......0.0..");
+	assert("1..0.......0*");
+	val7 = allocate(4, false); // not permanent
+	assert("1..0.......0*0.");
+	val8 = allocate(12, false); // not permanent
+	assert("1..0.......0*0.0...");
+	val9 = allocate(13, false); // not permanent
+	assert("1..0.......0*0.0...0....");
 
-	void * roots[] = {val5, val7};
-	tmmh_gc(roots, 2);
-	assert("v..0.......0.0..");
+	void * roots[] = {val5, val7, val9};
+	tmmh_gc(roots, 3);
+	assert("v..0.......0*0.v...0....");
 	tmmh_compact(stack_ptrs, 7);
-	assert("0.......v..0.0.."); // notice val7 does not (yet) move over permanent val6
+	assert("0.......0.v0*0...."); // notice val7 jumped over permanent val6
 }

@@ -20,7 +20,10 @@ void tmmh_visualize(char * buffer)
 		if (h->in_use) buffer[i++] = '0' + h->type;
 		else buffer[i++] = 'v';
 		for (int j=1; j < h->size; j++)
-			buffer[i++]='.';
+			if(h->preserve)
+				buffer[i++]='*';
+			else
+				buffer[i++]='.';
 
 		h = next(h);
 	}
