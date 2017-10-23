@@ -89,13 +89,11 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 			}
 
 			uint32_t gap_size = h->size;
-			bool swapping_with_next = true;
 
 			// if (next_h->in_use) ==> this is always true after the above tests
 
 			if (next_h->preserve)
 			{
-				swapping_with_next = false;
 				// Skip any 'preserved' slot and look for the next used slot
 				// that we can swap with. Has to be of the right size then!
 				// (swapping two adjacent places has no size requirements)
@@ -113,7 +111,7 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 				memmove(h, next_h, next_h->size * header_size);
 				if (gap_size > 0)
 					mark_available(next(h), gap_size);
-				if (!swapping_with_next) // we moved something from further away; free it
+				if (next(h) + gap_size < next_h) // we swapped with something from further away; free it
 					mark_available(next_h, next_h->size);
 				// update pointers
 				void * old_value = &next_h[1];
