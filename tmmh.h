@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 
 /* That's a pointer to a void pointer, passed by reference. */
 typedef bool (* pif) (void * data, int n, void *** result);

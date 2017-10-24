@@ -29,7 +29,10 @@ int main (int argc, char ** argv)
 	printf("- 'E!' is a test assert failure\n\n");
 
 	void * val1 = allocate(7, false);
-	void * val2 = allocate(12, false);
+	void * val2 = allocate(6, false);
+	assert("0..0..");
+	val2 = reallocate(val2, 12, false);
+	assert("0..0...");
 	void ** val3 = (void **) allocate(8, false); // allows for a max 64-bit pointer to be stored 
 	// (which keeps this test stable)
 

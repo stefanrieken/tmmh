@@ -70,6 +70,7 @@ void * allocate(uint32_t size, bool preserve)
 	uint32_t full_size_in_words = calc_full_size(size);
 	header * h = allocate_internal(full_size_in_words, size);
 	h->preserve = preserve;
+
 	return &h[1]; // location of value
 }
 
@@ -154,7 +155,15 @@ void * reallocate_internal (void * data, uint32_t size)
 	else
 	{
 		header * next_h = next(h);
-		if (!next_h->in_use && h->size + next_h->size >= full_size_in_words)
+		if(next_h->size == 0)
+		{
+			h->size = full_size_in_words;
+			h->bytes_unused = (header_size - (size % header_size)) % header_size;
+			next_h = next(h);
+			mark_end(next_h);
+			return data;
+		}
+		else if (!next_h->in_use && h->size + next_h->size >= full_size_in_words)
 		{
 			// grow into next
 			uint32_t gap = (h->size + next_h->size) - full_size_in_words;
