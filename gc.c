@@ -68,7 +68,7 @@ void tmmh_gc(void * roots[], int num_roots)
 void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 {
 	header * h = memory;
-	while (h->size != 0)
+	while (!is_end(h))
 	{
 		if (!h->in_use)
 		{
@@ -81,10 +81,10 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 				next_h = next(h);
 			}
 
-			if (next_h->size == 0)
+			if (is_end(next_h))
 			{
 				// empty slot at end of heap; shorten heap size
-				h->size = 0;
+				mark_end(h);
 				return;
 			}
 
@@ -117,12 +117,12 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 				void * old_value = &next_h[1];
 				void * new_value = &h[1];
 				update_pointers(old_value, new_value);
-	
+
 				for (int i=0;i<num_ptrs;i++)
 					if (*stack_ptrs[i] == old_value)
 						*stack_ptrs[i] = new_value;
 			}
-			
+
 		}
 
 		h = next(h);

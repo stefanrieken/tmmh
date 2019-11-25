@@ -41,6 +41,15 @@ static inline void mark_end(header * end_marker)
 	end_marker->in_use = false;
 	end_marker->size = 0;
 	end_marker->preserve = false;
+	end_marker->bytes_unused = 3;
+}
+
+static inline bool is_end(header * end_marker)
+{
+	return end_marker->in_use == false &&
+	end_marker->size == 0 &&
+	end_marker->preserve == false &&
+	end_marker->bytes_unused == 3;
 }
 
 static inline void mark_available(header * h, uint32_t full_size_in_words)
@@ -48,6 +57,7 @@ static inline void mark_available(header * h, uint32_t full_size_in_words)
 	h->in_use = false;
 	h->size = full_size_in_words;
 	h->preserve = false;
+	h->bytes_unused = 0;
 }
 
 static inline void mark_allocated

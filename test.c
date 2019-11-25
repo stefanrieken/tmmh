@@ -34,7 +34,7 @@ int main (int argc, char ** argv)
 	assert("0..0..", "allocate two untyped slots");
 	val2 = reallocate(val2, 12, false);
 	assert("0..0...", "resize slot 2");
-	void ** val3 = (void **) allocate(8, false); // allows for a max 64-bit pointer to be stored 
+	void ** val3 = (void **) allocate(8, false); // allows for a max 64-bit pointer to be stored
 	// (which keeps this test stable)
 
 	set_type(val3, 1); // pointer

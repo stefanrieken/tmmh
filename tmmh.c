@@ -39,7 +39,7 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 {
 	header * h = memory;
 
-	while (h->size != 0)
+	while (!is_end(h))
 	{
 		if (!h->in_use && h->size > full_size_in_words)
 		{
@@ -51,7 +51,7 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 			if (gap > 0)
 				mark_available(next(h), gap);
 
-			return h; 
+			return h;
 		}
 		h = next(h);
 	}
@@ -70,7 +70,6 @@ void * allocate(uint32_t size, bool preserve)
 	uint32_t full_size_in_words = calc_full_size(size);
 	header * h = allocate_internal(full_size_in_words, size);
 	h->preserve = preserve;
-
 	return &h[1]; // location of value
 }
 
@@ -79,7 +78,7 @@ static header * prev(header * next_h)
 	header * h = memory;
 	if (h == next_h) return NULL; // no previous
 
-	while (h->size != 0)
+	while (!is_end(h))
 	{
 		if (next(h) == next_h)
 			return h;
@@ -113,7 +112,7 @@ static void release_internal(header * h)
 library_local void update_pointers(void * old_value, void * new_value)
 {
 	header * h = memory;
-	while (h->size != 0)
+	while (!is_end(h))
 	{
 		if (h->in_use && h->size > 1) // no need if only a header
 		{
@@ -131,6 +130,10 @@ library_local void update_pointers(void * old_value, void * new_value)
 // always returns null, as a service: bla = release(bla); // bla is null
 void * release(void * data, bool clear_references)
 {
+	// Allow release of something that was (properly) never actually
+	// allocated.
+	if (data == NULL) return NULL;
+
 	header * h = find_header(data);
 	release_internal(h);
 	if (clear_references) update_pointers(data, NULL);
@@ -155,7 +158,7 @@ void * reallocate_internal (void * data, uint32_t size)
 	else
 	{
 		header * next_h = next(h);
-		if(next_h->size == 0)
+		if(is_end(next_h))
 		{
 			h->size = full_size_in_words;
 			h->bytes_unused = (header_size - (size % header_size)) % header_size;
@@ -168,7 +171,7 @@ void * reallocate_internal (void * data, uint32_t size)
 			// grow into next
 			uint32_t gap = (h->size + next_h->size) - full_size_in_words;
 			h->size = full_size_in_words;
-			mark_available(next(h), gap);
+			if(gap > 0) mark_available(next(h), gap);
 			return data;
 		}
 		else
@@ -182,7 +185,7 @@ void * reallocate_internal (void * data, uint32_t size)
 			return &new_h[1];
 		}
 	}
-	
+
 }
 
 void * reallocate (void * data, uint32_t size, bool update_references)
@@ -191,4 +194,3 @@ void * reallocate (void * data, uint32_t size, bool update_references)
 	if (update_references) update_pointers(data, new_data);
 	return new_data;
 }
-

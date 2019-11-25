@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-fdata-sections -ffunction-sections -Wall -Os -Wl,--gc-sections -fPIC
+CFLAGS=-g -fdata-sections -ffunction-sections -Wall -Os -Wl,-dead_strip -fPIC
 SOURCES = tmmh.c types.c stats.c gc.c
 OBJECTS = $(SOURCES:.c=.o)
 TEST_SOURCES = $(wildcard *.c)
