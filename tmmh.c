@@ -57,7 +57,6 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 	}
 
 	// nothing found; at end; allocate as new
-	h = next(h);
 	mark_allocated(h, full_size_in_words, size);
 	// and mark new end
 	mark_end(next(h));
