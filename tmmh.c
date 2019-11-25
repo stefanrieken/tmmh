@@ -11,7 +11,7 @@
 pif * pifs;
 
 header * memory;
-
+header * end_marker;
 
 /**
  * Init.
@@ -37,8 +37,13 @@ static uint32_t calc_full_size(uint32_t size)
 
 static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 {
+#ifdef TMMH_OPTIMIZE_SIZE
 	header * h = memory;
-
+#else
+	// The cost of walking is incredibly high.
+	// Just appending new items by default gives a huge speedup.
+	header * h = end_marker;
+#endif
 	while (!is_end(h))
 	{
 		if (!h->in_use && h->size > full_size_in_words)
@@ -58,9 +63,9 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 
 	// nothing found; at end; allocate as new
 	mark_allocated(h, full_size_in_words, size);
+
 	// and mark new end
 	mark_end(next(h));
-
 	return h;
 }
 
@@ -72,9 +77,12 @@ void * allocate(uint32_t size, bool preserve)
 	return &h[1]; // location of value
 }
 
+#ifdef TMMH_OPTIMIZE_SIZE
+
 static header * prev(header * next_h)
 {
 	header * h = memory;
+
 	if (h == next_h) return NULL; // no previous
 
 	while (!is_end(h))
@@ -87,8 +95,11 @@ static header * prev(header * next_h)
 	return NULL; // should not get here
 }
 
+#endif
+
 static void release_internal(header * h)
 {
+#ifdef TMMH_OPTIMIZE_SIZE
 	// merge with any previous space
 	header * prev_h = prev(h);
 	if (prev_h != NULL && !prev_h->in_use)
@@ -96,14 +107,16 @@ static void release_internal(header * h)
 		mark_available(prev_h, prev_h->size+h->size);
 		h = prev_h;
 	}
-
+#endif
 	uint32_t total_size_in_words = h->size;
 
+#ifdef TMMH_OPTIMIZE_SIZE
 	// merge with any next space
 	// (incidentally, this also works well when next is the end marker)
 	header * next_h = next(h);
 	if (!next_h->in_use)
 		total_size_in_words += next_h->size;
+#endif
 
 	mark_available(h, total_size_in_words);
 }
@@ -129,8 +142,8 @@ library_local void update_pointers(void * old_value, void * new_value)
 // always returns null, as a service: bla = release(bla); // bla is null
 void * release(void * data, bool clear_references)
 {
-	// Allow release of something that was (properly) never actually
-	// allocated.
+	// Allow blindly releasing something that was never actually allocated
+	// but was properly marked as NULL.
 	if (data == NULL) return NULL;
 
 	header * h = find_header(data);
@@ -148,10 +161,12 @@ void * reallocate_internal (void * data, uint32_t size)
 	if (h->size == full_size_in_words) return data; // no change
 	else if (h->size > full_size_in_words)
 	{
+#ifdef TMMH_OPTIMIZE_SIZE
 		// shrink
 		uint32_t gap = h->size - full_size_in_words;
 		h->size = full_size_in_words;
 		mark_available(next(h), gap);
+#endif
 		return data;
 	}
 	else
@@ -175,6 +190,7 @@ void * reallocate_internal (void * data, uint32_t size)
 		}
 		else
 		{
+//			printf("Move\n");
 			// move
 			header * new_h = allocate_internal(full_size_in_words, size);
 			memcpy (new_h, h, h->size * header_size);

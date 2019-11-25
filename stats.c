@@ -15,7 +15,7 @@ void tmmh_visualize(char * buffer)
 {
 	int i=0;
 	header * h = memory;
-	while (h->size != 0)
+	while (!is_end(h))
 	{
 		if (h->in_use) buffer[i++] = '0' + h->type;
 		else buffer[i++] = 'v';

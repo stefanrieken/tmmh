@@ -13,43 +13,47 @@
 #define next(h) &h[h->size]
 
 
-typedef struct packed header {
+typedef struct header {
+	union {
+		uint16_t size : 16; // 4-byte aligned, so multiply by 4 #ifdef MAXIMIZE_SIZE (max=256k)
+		uint16_t value : 16;  // if flagged as 'direct_value'
+	};
 	// flags + bytes_unused
 	bool in_use : 1;
 	bool gc_mark : 1;
 	bool direct_value : 1;
 	bool preserve : 1; // don't GC or move when heap compressing
-	uint8_t user_defined_flags : 2;
-	uint8_t bytes_unused : 2;
+	uint8_t bytes_unused : 4; // up to 256 user-definable datatypes
 
 	uint8_t type : 8; // up to 256 user-definable datatypes
-	union {
-		uint16_t size : 16; // 4-byte aligned, so multiply by 4 #ifdef MAXIMIZE_SIZE (max=256k)
-		uint16_t value : 16;  // if flagged as 'direct_value'
-	};
 } header;
 
 extern pif * pifs;
 
 extern header * memory;
+extern header * end_marker;
 
 /**
  * Inline helper functions.
  */
-static inline void mark_end(header * end_marker)
+static inline void mark_end(header * h)
 {
-	end_marker->in_use = false;
-	end_marker->size = 0;
-	end_marker->preserve = false;
-	end_marker->bytes_unused = 3;
+/*	h->in_use = false;
+	h->size = 0;
+	h->preserve = false;
+	h->bytes_unused = 3;*/
+	end_marker = h;
 }
 
-static inline bool is_end(header * end_marker)
+static inline bool is_end(header * h)
 {
-	return end_marker->in_use == false &&
+	// To be considered:
+	return h == end_marker;
+
+/*	return h->in_use == false &&
 	end_marker->size == 0 &&
-	end_marker->preserve == false &&
-	end_marker->bytes_unused == 3;
+	h->preserve == false &&
+	h->bytes_unused == 3;*/
 }
 
 static inline void mark_available(header * h, uint32_t full_size_in_words)
