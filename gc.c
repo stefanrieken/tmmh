@@ -108,13 +108,13 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 				gap_size -= next_h->size;
 			}
 
-			if (!is_end(next_h) && h->size >= next_h->size) // Can't cope with overlap
+			if (!is_end(next_h))
 			{
 				// swap places
 				// using memmove because it guarantees to work on overlap
 				// (memcpy could work if it copied left-to-right, 1-by-1)
-				//memmove(h, next_h, next_h->size * header_size);
-				memcpy(h, next_h, next_h->size * header_size);
+				memmove(h, next_h, next_h->size * header_size);
+				//memcpy(h, next_h, next_h->size * header_size);
 				if (gap_size > 0)
 					mark_available(next(h), gap_size);
 				if (next(h) + gap_size < next_h) // we swapped with something from further away; free it
