@@ -29,3 +29,7 @@ void tmmh_visualize(char * buffer)
 	}
 	buffer[i] = 0;
 }
+
+uint64_t tmmh_memsize() {
+	return end_marker - memory;
+}

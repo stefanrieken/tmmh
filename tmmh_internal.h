@@ -12,7 +12,9 @@
 
 #define next(h) &h[h->size]
 
+#define TMMH_HEADER_32
 
+#ifdef TMMH_HEADER_32
 typedef struct header {
 	union {
 		uint16_t size : 16; // 4-byte aligned, so multiply by 4 #ifdef MAXIMIZE_SIZE (max=256k)
@@ -23,10 +25,31 @@ typedef struct header {
 	bool gc_mark : 1;
 	bool direct_value : 1;
 	bool preserve : 1; // don't GC or move when heap compressing
-	uint8_t bytes_unused : 4; // up to 256 user-definable datatypes
+	uint8_t bytes_unused : 2; // 0-3 bytes
+	uint8_t user_defined: 2; // user defined flags
 
 	uint8_t type : 8; // up to 256 user-definable datatypes
 } header;
+#endif
+
+#ifdef TMMH_HEADER_64
+typedef struct header {
+	union {
+		uint32_t size : 32; // 4-byte aligned, so multiply by 4 #ifdef MAXIMIZE_SIZE (max=256k)
+		uint32_t value : 32;  // if flagged as 'direct_value'
+	};
+	// flags + bytes_unused
+	bool in_use : 1;
+	bool gc_mark : 1;
+	bool direct_value : 1;
+	bool preserve : 1; // don't GC or move when heap compressing
+	uint8_t bytes_unused : 3; // 0-7 bytes
+	bool user_defined: 1; // user defined flags
+	uint8_t unused; // more unused stuff to fill in the 64 bits.
+
+	uint16_t type : 16; // up to 65536 user-definable datatypes
+} header;
+#endif
 
 extern pif * pifs;
 

@@ -30,12 +30,14 @@ extern void * reallocate (void * data, uint32_t size, bool update_references);
 
 /** Visualize memory into buffer. Buffer should be at least memory size in 'words'+1 */
 extern void tmmh_visualize(char * buffer);
+uint64_t tmmh_memsize();
 
 /**
  * Types.
  */
 extern void set_type(void * data, int type);
 extern int get_type(void * data);
+uint32_t get_size(void * data);
 
 /**
  * Garbage collection.

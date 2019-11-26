@@ -27,3 +27,5 @@ test: $(TEST_OBJECTS)
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
+	# For test:
+	#$(CC) -D TMMH_OPTIMIZE_SIZE -c $(CFLAGS) $< -o $@

@@ -74,7 +74,7 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 		{
 			header * next_h = next(h);
 
-			if (!next_h->in_use && next_h->size != 0)
+			if(!next_h->in_use && !is_end(next_h))
 			{
 				// merge the two
 				h->size += next_h->size;
@@ -88,6 +88,8 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 				return;
 			}
 
+			// if swapping two consecutive places, the 'gap' at the end
+			// will be equal to the size of the open space that we swap into.
 			uint32_t gap_size = h->size;
 
 			// if (next_h->in_use) ==> this is always true after the above tests
@@ -99,20 +101,25 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 				// (swapping two adjacent places has no size requirements)
 				do {
 					next_h = next(next_h);
-				} while (next_h->size != 0 && (!next_h->in_use || next_h->preserve || h->size < next_h->size));
+				} while (!is_end(next_h) && (!next_h->in_use || next_h->preserve || h->size < next_h->size));
+
+				// now the gap at the given point is simply the diff
+				// between the available space and portion we will use after the move.
 				gap_size -= next_h->size;
 			}
 
-			if (next_h->size != 0)
+			if (!is_end(next_h) && h->size >= next_h->size) // Can't cope with overlap
 			{
 				// swap places
 				// using memmove because it guarantees to work on overlap
 				// (memcpy could work if it copied left-to-right, 1-by-1)
-				memmove(h, next_h, next_h->size * header_size);
+				//memmove(h, next_h, next_h->size * header_size);
+				memcpy(h, next_h, next_h->size * header_size);
 				if (gap_size > 0)
 					mark_available(next(h), gap_size);
 				if (next(h) + gap_size < next_h) // we swapped with something from further away; free it
 					mark_available(next_h, next_h->size);
+
 				// update pointers
 				void * old_value = &next_h[1];
 				void * new_value = &h[1];
