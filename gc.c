@@ -11,12 +11,29 @@
 /**
  * Garbage collection.
  */
+ void check_memory()
+ {
+ 	header * h = memory;
+ 	while (!is_end(h))
+ 	{
+		uint32_t * foo = (uint32_t *) h;
+		while (foo < next(h)) {
+			printf("%08x|", *foo);
+			foo++;
+		}
+		printf("\n");
+		printf("%d\n", h->type);
+ 		h = next(h);
+ 	}
+	printf("Safe and sound here\n");
+ }
+
 static void clear()
 {
 	header * h = memory;
-	while (h->size != 0)
+	while (!is_end(h))
 	{
-		h->gc_mark = h->preserve; // keep 'preserved' entries
+		h->gc_mark = false;
 		h = next(h);
 	}
 }
@@ -40,6 +57,30 @@ static void mark_and_follow(void * data)
 	}
 }
 
+/**
+ * Since these are the objects accessed when calling GC,
+ * they should likely be preserved!
+ */
+/*static void preserve_roots(void * roots[], int num_roots)
+{
+	for (int i=0; i<num_roots; i++) {
+		if (roots[i] == NULL) continue;
+		header * h = find_header(roots[i]);
+		h->preserve = true;
+	}
+}*/
+
+static void mark_preserved() {
+	header * h = memory;
+	while (!is_end(h))
+	{
+		if (h->in_use && h->preserve) {
+			mark_and_follow(&h[1]);
+		}
+		h = next(h);
+	}
+}
+
 static void mark(void * roots[], int num_roots)
 {
 	for (int i=0; i<num_roots; i++)
@@ -60,9 +101,13 @@ static void sweep()
 
 void tmmh_gc(void * roots[], int num_roots)
 {
+//	check_memory();
 	clear();
+//	preserve_roots(roots, num_roots);
+	mark_preserved();
 	mark(roots, num_roots);
 	sweep();
+//	check_memory();
 }
 
 void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
@@ -74,11 +119,13 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 		{
 			header * next_h = next(h);
 
-			if(!next_h->in_use && !is_end(next_h))
+			while(!is_end(next_h) && !next_h->in_use && h->size + next_h->size < 65535)
 			{
 				// merge the two
+//				if (h->size > 60000) printf("Two become one: %p, %d, %d\n", next_h, h->size, next_h->size);
 				h->size += next_h->size;
 				next_h = next(h);
+//				if (h->size > 60000) printf("Result: %p, %d\n", next_h, h->size);
 			}
 
 			if (is_end(next_h))
@@ -130,6 +177,10 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 						*stack_ptrs[i] = new_value;
 			}
 
+/*		} else {
+			if (is_end(next(h)) && h->preserve) {
+				printf("Further compacting memory limited by object of type %d\n", h->type);
+			}*/
 		}
 
 		h = next(h);

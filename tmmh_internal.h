@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <signal.h>
 
 #include "tmmh.h"
 
@@ -70,7 +71,6 @@ static inline void mark_end(header * h)
 
 static inline bool is_end(header * h)
 {
-	// To be considered:
 	return h == end_marker;
 
 /*	return h->in_use == false &&

@@ -43,3 +43,8 @@ uint32_t get_size(void * data) {
 	header * h = find_header(data);
 	return ((h->size-1) * header_size) - h->bytes_unused;
 }
+
+bool in_use(void * data) {
+	header * h = find_header(data);
+	return h->in_use;
+}

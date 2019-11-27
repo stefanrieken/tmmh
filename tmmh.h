@@ -38,6 +38,7 @@ uint64_t tmmh_memsize();
 extern void set_type(void * data, int type);
 extern int get_type(void * data);
 uint32_t get_size(void * data);
+bool in_use(void * data);
 
 /**
  * Garbage collection.

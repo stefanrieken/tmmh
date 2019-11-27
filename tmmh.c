@@ -132,8 +132,10 @@ library_local void update_pointers(void * old_value, void * new_value)
 			void ** ptr = NULL;
 
 			int i = 0;
-			while (p(&h[1], i++, &ptr))
+			while (p(&h[1], i++, &ptr)) {
+				//printf("Old: %p, new: %p\n", old_value, new_value);
 				if (*ptr == old_value) *ptr = new_value;
+			}
 		}
 		h = next(h);
 	}
