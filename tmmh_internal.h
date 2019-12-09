@@ -13,10 +13,30 @@
 
 #define next(h) &h[h->size]
 
+#ifdef TMMH_HEADER_16
+/* 16-bit aligned header with max 8-bit inline value */
+typedef struct header {
+	union {
+		uint16_t size : 9; // 2-byte aligned, so multiply by 2 (so max=1024)
+		uint16_t value : 9; // if flagged as 'direct_value'
+	};
+	union { // note GC_MARKER == IN_USE flag to save space
+		bool in_use : 1;
+		bool gc_mark : 1;
+		bool preserve : 1;
+	};
+	bool bytes_unused : 1;  // value size = node_size - bytes_unused (max 1)
+	uint8_t type : 4; // up to 16 user-definable datatypes
+} header;
+
+#define tmmh_size_t uint8_t
+#define TMMH_MAX_SIZE UINT8_MAX
+#endif
+
 #ifdef TMMH_HEADER_32
 typedef struct header {
 	union {
-		uint16_t size : 16; // 4-byte aligned, so multiply by 4 #ifdef MAXIMIZE_SIZE (max=256k)
+		uint16_t size : 16; // 4-byte aligned, so multiply by 4 (so max=256k)
 		uint16_t value : 16;  // if flagged as 'direct_value'
 	};
 	// flags + bytes_unused
@@ -30,13 +50,14 @@ typedef struct header {
 	uint8_t type : 8; // up to 256 user-definable datatypes
 } header;
 
+#define tmmh_size_t uint16_t
 #define TMMH_MAX_SIZE UINT16_MAX
 #endif
 
 #ifdef TMMH_HEADER_64
 typedef struct header {
 	union {
-		uint32_t size : 32; // 4-byte aligned, so multiply by 4 #ifdef MAXIMIZE_SIZE (max=256k)
+		uint32_t size : 32; // 8-byte aligned, so multiply by 8 (so max=32GB)
 		uint32_t value : 32;  // if flagged as 'direct_value'
 	};
 	// flags + bytes_unused
@@ -51,6 +72,7 @@ typedef struct header {
 	uint16_t type : 16; // up to 65536 user-definable datatypes
 } header;
 
+#define tmmh_size_t uint32_t
 #define TMMH_MAX_SIZE UINT32_MAX
 #endif
 
@@ -77,7 +99,7 @@ static inline void mark_end(header * h)
 	h->in_use = false;
 	h->size = 0;
 	h->preserve = false;
-	h->bytes_unused = 3;
+	h->bytes_unused = 1;
 #endif
 }
 
@@ -89,11 +111,11 @@ static inline bool is_end(header * h)
 	return h->in_use == false &&
 	h->size == 0 &&
 	h->preserve == false &&
-	h->bytes_unused == 3;
+	h->bytes_unused == 1;
 #endif
 }
 
-static inline void mark_available(header * h, uint32_t full_size_in_words)
+static inline void mark_available(header * h, tmmh_size_t full_size_in_words)
 {
 	h->in_use = false;
 	h->size = full_size_in_words;
@@ -102,7 +124,7 @@ static inline void mark_available(header * h, uint32_t full_size_in_words)
 }
 
 static inline void mark_allocated
-(header * h, uint32_t full_size_in_words, uint32_t size)
+(header * h, tmmh_size_t full_size_in_words, tmmh_size_t size)
 {
 	h->in_use = true;
 	h->bytes_unused = (header_size - (size % header_size)) % header_size;

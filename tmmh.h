@@ -10,7 +10,7 @@ typedef bool (* pif) (void * data, int n, void *** result);
  * pifs may be NULL.
  * If not, it should contain a pointer identifying function (pif) for each type number in use.
  */
-void tmmh_init(uint32_t memsize, pif pifs[]);
+void tmmh_init(size_t memsize, pif pifs[]);
 
 /**
  * Standard pifs for data containing no pointers at all, resp. data of type 'pointer'.

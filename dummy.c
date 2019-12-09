@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include "tmmh.h"
 
-void tmmh_init(uint32_t memsize, pif pfs[])
+void tmmh_init(size_t memsize, pif pfs[])
 {
 }
 

@@ -135,7 +135,7 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 
 			// if swapping two consecutive places, the 'gap' at the end
 			// will be equal to the size of the open space that we swap into.
-			uint32_t gap_size = h->size;
+			tmmh_size_t gap_size = h->size;
 
 			// if (next_h->in_use) ==> this is always true after the above tests
 

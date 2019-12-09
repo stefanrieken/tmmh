@@ -7,7 +7,7 @@ TEST_SOURCES = $(SOURCES) test.c
 all: libtmmh.a libdummytmmh.a libtmmh.so libdummytmmh.so
 
 clean:
-	rm -f *.o libtmmh.a libtmmh.so test
+	rm -f *.o *.a *.so test
 
 libtmmh.a: $(OBJECTS)
 	ar rcs libtmmh.a $(OBJECTS)
@@ -25,4 +25,4 @@ libdummytmmh.so: $(OBJECTS)
 	$(CC) -D TMMH_HEADER_64 -D TMMH_USE_END_MARKER -c $(CFLAGS) $< -o $@
 
 test: $(TEST_SOURCES)
-	$(CC) -D TMMH_HEADER_32 -D TMMH_OPTIMIZE_SIZE $(CFLAGS) $(TEST_SOURCES) -o $@
+	$(CC) -D TMMH_HEADER_32 -D TMMH_OPTIMIZE_SIZE -D TMMH_USE_END_MARKER $(CFLAGS) $(TEST_SOURCES) -o $@

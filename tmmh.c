@@ -18,7 +18,7 @@ header * end_marker;
 /**
  * Init.
  */
-void tmmh_init(uint32_t memsize, pif pfs[])
+void tmmh_init(size_t memsize, pif pfs[])
 {
 	pifs = pfs;
 	memory = malloc(memsize);
@@ -30,14 +30,19 @@ void tmmh_init(uint32_t memsize, pif pfs[])
  */
 
 /** Calculates full size in 'words' (that is, sizesof(header)), including 1 for the header */
-static uint32_t calc_full_size(uint32_t size)
+static tmmh_size_t calc_full_size(uint32_t size)
 {
-	uint32_t full_size_in_words = (size / header_size);
+	tmmh_size_t full_size_in_words = (size / header_size);
 	if ((size % header_size) != 0) full_size_in_words++;
+
+/*	if (((full_size_in_words+1)*4) < size) {
+		printf("Rollover detected: %d, %d!\n", full_size_in_words+1, size);
+		raise(SIGINT);
+	}*/
 	return full_size_in_words+1;
 }
 
-static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
+static header * allocate_internal (tmmh_size_t full_size_in_words, uint32_t size)
 {
 #if defined(TMMH_OPTIMIZE_SIZE) || !defined(TMMH_USE_END_MARKER)
 	header * h = memory;
@@ -59,11 +64,11 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 			// Allocate if it fits
 			if (h->size >= full_size_in_words)
 			{
-				uint32_t old_size = h->size;
+				tmmh_size_t old_size = h->size;
 				mark_allocated(h, full_size_in_words, size);
 
 				// mark any unused part as new slot
-				uint32_t gap = old_size - h->size;
+				tmmh_size_t gap = old_size - h->size;
 				if (gap > 0)
 					mark_available(next(h), gap);
 
@@ -84,7 +89,7 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 
 void * allocate(uint32_t size, bool preserve)
 {
-	uint32_t full_size_in_words = calc_full_size(size);
+	tmmh_size_t full_size_in_words = calc_full_size(size);
 	header * h = allocate_internal(full_size_in_words, size);
 	h->preserve = preserve;
 	return &h[1]; // location of value
@@ -92,7 +97,7 @@ void * allocate(uint32_t size, bool preserve)
 
 static void release_internal(header * h)
 {
-	uint32_t total_size_in_words = h->size;
+	tmmh_size_t total_size_in_words = h->size;
 
 	// merge with any next space
 	// (incidentally, this also works well when next is the end marker)
@@ -146,7 +151,7 @@ void * release(void * data, bool clear_references)
 
 void * reallocate_internal (void * data, uint32_t size)
 {
-	uint32_t full_size_in_words = calc_full_size(size);
+	tmmh_size_t full_size_in_words = calc_full_size(size);
 
 	header * h = find_header(data);
 
@@ -155,7 +160,7 @@ void * reallocate_internal (void * data, uint32_t size)
 	{
 #ifdef TMMH_OPTIMIZE_SIZE
 		// shrink
-		uint32_t gap = h->size - full_size_in_words;
+		tmmh_size_t gap = h->size - full_size_in_words;
 		h->size = full_size_in_words;
 		mark_available(next(h), gap);
 #endif
@@ -175,7 +180,7 @@ void * reallocate_internal (void * data, uint32_t size)
 		else if (!next_h->in_use && h->size + next_h->size >= full_size_in_words)
 		{
 			// grow into next
-			uint32_t gap = (h->size + next_h->size) - full_size_in_words;
+			tmmh_size_t gap = (h->size + next_h->size) - full_size_in_words;
 			h->size = full_size_in_words;
 			if(gap > 0) mark_available(next(h), gap);
 			return data;
