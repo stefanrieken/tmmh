@@ -57,28 +57,40 @@ typedef struct header {
 extern pif * pifs;
 
 extern header * memory;
+
+#ifdef TMMH_USE_END_MARKER
 extern header * end_marker;
+#endif
 
 /**
  * Inline helper functions.
  */
 static inline void mark_end(header * h)
 {
+#ifdef TMMH_USE_END_MARKER
 	end_marker = h;
 	 // explicitly set size to zero, preventing the situation where
 	 // the current header in a loop was freed to become the end marker,
 	 // and then next(h) is called once more.
 	h->size = 0;
+#else
+	h->in_use = false;
+	h->size = 0;
+	h->preserve = false;
+	h->bytes_unused = 3;
+#endif
 }
 
 static inline bool is_end(header * h)
 {
+#ifdef TMMH_USE_END_MARKER
 	return h == end_marker;
-
-/*	return h->in_use == false &&
-	end_marker->size == 0 &&
+#else
+	return h->in_use == false &&
+	h->size == 0 &&
 	h->preserve == false &&
-	h->bytes_unused == 3;*/
+	h->bytes_unused == 3;
+#endif
 }
 
 static inline void mark_available(header * h, uint32_t full_size_in_words)

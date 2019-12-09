@@ -11,7 +11,9 @@
 pif * pifs;
 
 header * memory;
+#ifdef TMMH_USE_END_MARKER
 header * end_marker;
+#endif
 
 /**
  * Init.
@@ -37,7 +39,7 @@ static uint32_t calc_full_size(uint32_t size)
 
 static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 {
-#ifdef TMMH_OPTIMIZE_SIZE
+#if defined(TMMH_OPTIMIZE_SIZE) || !defined(TMMH_USE_END_MARKER)
 	header * h = memory;
 #else
 	// The cost of walking is incredibly high.
