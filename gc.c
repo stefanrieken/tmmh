@@ -90,7 +90,7 @@ static void mark(void * roots[], int num_roots)
 static void sweep()
 {
 	header * h = memory;
-	while (h != end_marker)
+	while (!is_end(h))
 	{
 		if (!h->gc_mark)
 			release(&h[1], false); // shouldn't need to clear references
@@ -119,13 +119,11 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 		{
 			header * next_h = next(h);
 
-			while(!is_end(next_h) && !next_h->in_use && h->size + next_h->size < TMMH_MAX_SIZE)
+			while(!is_end(next_h) && !next_h->in_use && h->size + next_h->size <= TMMH_MAX_SIZE)
 			{
 				// merge the two
-//				if (h->size > 60000) printf("Two become one: %p, %d, %d\n", next_h, h->size, next_h->size);
 				h->size += next_h->size;
 				next_h = next(h);
-//				if (h->size > 60000) printf("Result: %p, %d\n", next_h, h->size);
 			}
 
 			if (is_end(next_h))

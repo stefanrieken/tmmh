@@ -46,19 +46,30 @@ static header * allocate_internal (uint32_t full_size_in_words, uint32_t size)
 #endif
 	while (!is_end(h))
 	{
-		if (!h->in_use && h->size > full_size_in_words)
-		{
-			uint32_t old_size = h->size;
-			mark_allocated(h, full_size_in_words, size);
+		header * next_h = next(h);
+		if (!h->in_use) {
+			// Glue vacant neighbours together
+			while(!is_end(next_h) && !next_h->in_use) {
+				h->size += next_h->size;
+				next_h = next(h);
+			}
 
-			// mark any unused part as new slot
-			uint32_t gap = old_size - h->size;
-			if (gap > 0)
-				mark_available(next(h), gap);
+			// Allocate if it fits
+			if (h->size >= full_size_in_words)
+			{
+				uint32_t old_size = h->size;
+				mark_allocated(h, full_size_in_words, size);
 
-			return h;
+				// mark any unused part as new slot
+				uint32_t gap = old_size - h->size;
+				if (gap > 0)
+					mark_available(next(h), gap);
+
+				return h;
+			}
 		}
-		h = next(h);
+
+		h = next_h;
 	}
 
 	// nothing found; at end; allocate as new
@@ -77,48 +88,25 @@ void * allocate(uint32_t size, bool preserve)
 	return &h[1]; // location of value
 }
 
-#ifdef TMMH_OPTIMIZE_SIZE
-
-static header * prev(header * next_h)
-{
-	header * h = memory;
-
-	if (h == next_h) return NULL; // no previous
-
-	while (!is_end(h))
-	{
-		if (next(h) == next_h)
-			return h;
-		h = next(h);
-	}
-
-	return NULL; // should not get here
-}
-
-#endif
-
 static void release_internal(header * h)
 {
-#ifdef TMMH_OPTIMIZE_SIZE
-	// merge with any previous space
-	header * prev_h = prev(h);
-	if (prev_h != NULL && !prev_h->in_use)
-	{
-		mark_available(prev_h, prev_h->size+h->size);
-		h = prev_h;
-	}
-#endif
 	uint32_t total_size_in_words = h->size;
 
-#ifdef TMMH_OPTIMIZE_SIZE
 	// merge with any next space
 	// (incidentally, this also works well when next is the end marker)
+	// We don't merge with any previous space, because the lookup takes
+	// too much effort; we fix this by merging forward once more on allocate,
+	// splitting the load of the effort between these two functions.
 	header * next_h = next(h);
-	if (!next_h->in_use)
-		total_size_in_words += next_h->size;
-#endif
+	if (is_end(next_h)) {
+		//printf("Release at end of heap\n");
+		mark_end(h);
+	} else {
+		if (!next_h->in_use && total_size_in_words + next_h->size <= TMMH_MAX_SIZE)
+			total_size_in_words += next_h->size;
 
-	mark_available(h, total_size_in_words);
+		mark_available(h, total_size_in_words);
+	}
 }
 
 library_local void update_pointers(void * old_value, void * new_value)
@@ -192,7 +180,6 @@ void * reallocate_internal (void * data, uint32_t size)
 		}
 		else
 		{
-//			printf("Move\n");
 			// move
 			header * new_h = allocate_internal(full_size_in_words, size);
 			memcpy (new_h, h, h->size * header_size);

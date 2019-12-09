@@ -21,8 +21,8 @@ libtmmh.so: $(OBJECTS)
 libdummytmmh.so: $(OBJECTS)
 	gcc -shared -o libdummytmmh.so dummy.o
 
-	%.o: %.c
-		$(CC) -c $(CFLAGS) $< -o $@
+%.o: %.c
+	$(CC) -D TMMH_HEADER_64 -c $(CFLAGS) $< -o $@
 
 test: $(TEST_SOURCES)
-	$(CC) -D TMMH_OPTIMIZE_SIZE $(CFLAGS) $(TEST_SOURCES) -o $@
+	$(CC) -D TMMH_HEADER_32 -D TMMH_OPTIMIZE_SIZE $(CFLAGS) $(TEST_SOURCES) -o $@

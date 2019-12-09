@@ -13,9 +13,6 @@
 
 #define next(h) &h[h->size]
 
-#define TMMH_HEADER_32
-//#define TMMH_HEADER_64
-
 #ifdef TMMH_HEADER_32
 typedef struct header {
 	union {
@@ -67,11 +64,11 @@ extern header * end_marker;
  */
 static inline void mark_end(header * h)
 {
-/*	h->in_use = false;
-	h->size = 0;
-	h->preserve = false;
-	h->bytes_unused = 3;*/
 	end_marker = h;
+	 // explicitly set size to zero, preventing the situation where
+	 // the current header in a loop was freed to become the end marker,
+	 // and then next(h) is called once more.
+	h->size = 0;
 }
 
 static inline bool is_end(header * h)
