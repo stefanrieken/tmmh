@@ -11,7 +11,7 @@
 /**
  * Garbage collection.
  */
- void check_memory()
+/* void check_memory()
  {
  	header * h = memory;
  	while (!is_end(h))
@@ -26,7 +26,7 @@
  		h = next(h);
  	}
 	printf("Safe and sound here\n");
- }
+}*/
 
 static void clear()
 {
@@ -90,7 +90,7 @@ static void mark(void * roots[], int num_roots)
 static void sweep()
 {
 	header * h = memory;
-	while (h->size != 0)
+	while (h != end_marker)
 	{
 		if (!h->gc_mark)
 			release(&h[1], false); // shouldn't need to clear references
@@ -119,7 +119,7 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 		{
 			header * next_h = next(h);
 
-			while(!is_end(next_h) && !next_h->in_use && h->size + next_h->size < 65535)
+			while(!is_end(next_h) && !next_h->in_use && h->size + next_h->size < TMMH_MAX_SIZE)
 			{
 				// merge the two
 //				if (h->size > 60000) printf("Two become one: %p, %d, %d\n", next_h, h->size, next_h->size);

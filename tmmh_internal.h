@@ -14,6 +14,7 @@
 #define next(h) &h[h->size]
 
 #define TMMH_HEADER_32
+//#define TMMH_HEADER_64
 
 #ifdef TMMH_HEADER_32
 typedef struct header {
@@ -31,6 +32,8 @@ typedef struct header {
 
 	uint8_t type : 8; // up to 256 user-definable datatypes
 } header;
+
+#define TMMH_MAX_SIZE UINT16_MAX
 #endif
 
 #ifdef TMMH_HEADER_64
@@ -50,6 +53,8 @@ typedef struct header {
 
 	uint16_t type : 16; // up to 65536 user-definable datatypes
 } header;
+
+#define TMMH_MAX_SIZE UINT32_MAX
 #endif
 
 extern pif * pifs;
