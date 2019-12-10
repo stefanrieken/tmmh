@@ -41,6 +41,7 @@ static tmmh_size_t calc_full_size(uint32_t size)
 
 static header * allocate_internal (void * memory, tmmh_size_t full_size_in_words, uint32_t size)
 {
+#if defined(TMMH_OPTIMIZE_SIZE) || !defined(TMMH_USE_END_MARKER)
 	header * h = first_header(memory);
 
 	while (!is_end(memory, h))
@@ -70,6 +71,10 @@ static header * allocate_internal (void * memory, tmmh_size_t full_size_in_words
 
 		h = next_h;
 	}
+#else
+	// Appending at end of memory delivers a huge speedup!
+	header * h = ((mem_header *) memory)->end_marker;
+#endif
 
 	// nothing found; at end; allocate as new
 	mark_allocated(h, full_size_in_words, size);
