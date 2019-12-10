@@ -16,8 +16,9 @@ pif * pifs;
 void * tmmh_init(size_t memsize, pif pfs[])
 {
 	pifs = pfs;
-	header * memory = malloc(memsize);
-	mark_end(memory);
+	mem_header * memory = malloc(memsize);
+	memory->size = memsize;
+	mark_end(memory, first_header(memory));
 	return memory;
 }
 
@@ -40,14 +41,14 @@ static tmmh_size_t calc_full_size(uint32_t size)
 
 static header * allocate_internal (void * memory, tmmh_size_t full_size_in_words, uint32_t size)
 {
-	header * h = memory;
+	header * h = first_header(memory);
 
-	while (!is_end(h))
+	while (!is_end(memory, h))
 	{
 		header * next_h = next(h);
 		if (!h->in_use) {
 			// Glue vacant neighbours together
-			while(!is_end(next_h) && !next_h->in_use) {
+			while(!is_end(memory, next_h) && !next_h->in_use) {
 				h->size += next_h->size;
 				next_h = next(h);
 			}
@@ -74,7 +75,7 @@ static header * allocate_internal (void * memory, tmmh_size_t full_size_in_words
 	mark_allocated(h, full_size_in_words, size);
 
 	// and mark new end
-	mark_end(next(h));
+	mark_end(memory, next(h));
 	return h;
 }
 
@@ -96,9 +97,9 @@ static void release_internal(void * memory, header * h)
 	// too much effort; we fix this by merging forward once more on allocate,
 	// splitting the load of the effort between these two functions.
 	header * next_h = next(h);
-	if (is_end(next_h)) {
+	if (is_end(memory, next_h)) {
 		//printf("Release at end of heap\n");
-		mark_end(h);
+		mark_end(memory, h);
 	} else {
 		if (!next_h->in_use && total_size_in_words + next_h->size <= TMMH_MAX_SIZE)
 			total_size_in_words += next_h->size;
@@ -109,8 +110,8 @@ static void release_internal(void * memory, header * h)
 
 library_local void update_pointers(void * memory, void * old_value, void * new_value)
 {
-	header * h = memory;
-	while (!is_end(h))
+	header * h = first_header(memory);
+	while (!is_end(memory, h))
 	{
 		if (h->in_use && h->size > 1) // no need if only a header
 		{
@@ -160,12 +161,12 @@ void * reallocate_internal (void * memory, void * data, uint32_t size)
 	else
 	{
 		header * next_h = next(h);
-		if(is_end(next_h))
+		if(is_end(memory, next_h))
 		{
 			h->size = full_size_in_words;
 			h->bytes_unused = (header_size - (size % header_size)) % header_size;
 			next_h = next(h);
-			mark_end(next_h);
+			mark_end(memory, next_h);
 			return data;
 		}
 		else if (!next_h->in_use && h->size + next_h->size >= full_size_in_words)

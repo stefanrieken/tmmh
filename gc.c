@@ -14,7 +14,7 @@
  */
 /* void check_memory()
  {
- 	header * h = memory;
+ 	header * h = first_header(memory);
  	while (!is_end(h))
  	{
 		uint32_t * foo = (uint32_t *) h;
@@ -31,8 +31,8 @@
 
 static void clear_marks(void * memory)
 {
-	header * h = memory;
-	while (!is_end(h))
+	header * h = first_header(memory);
+	while (!is_end(memory, h))
 	{
 		h->gc_mark = false;
 		h = next(h);
@@ -72,8 +72,8 @@ static void mark_and_follow(void * data)
 }*/
 
 static void mark_preserved(void * memory) {
-	header * h = memory;
-	while (!is_end(h))
+	header * h = first_header(memory);
+	while (!is_end(memory, h))
 	{
 		if (h->in_use && h->preserve) {
 			mark_and_follow(&h[1]);
@@ -88,48 +88,10 @@ static void mark(void * roots[], int num_roots)
 		mark_and_follow(roots[i]);
 }
 
-static void search(void * memory, void * start, void * end) {
-	for(void * i = start; i<end; i++) {
-		void * maybe_pointer = *((void **) i);
-		if(maybe_pointer > start && maybe_pointer < end) {
-			// potential pointer; mark related header
-			header * h = memory;
-			while (!is_end(h)) {
-				header * next_h = next(h);
-				if (maybe_pointer > (void*) h && maybe_pointer < (void*) next_h) {
-					h->gc_mark = true;
-					break;
-				}
-				h = next_h;
-			}
-		}
-	}
-}
-
-static void mark_conservative(void * memory, int num_ranges, ...) {
-	va_list args;
-	va_start(args, num_ranges);
-
-	void * start = memory;
-	void * end = memory;
-	while (!is_end(end)) {
-		end = next(((header*) end));
-	}
-
-	// first search self
-	search(memory, start, end);
-	// then search other ranges offered
-	for (int i=0; i<num_ranges; i++) {
-		start = va_arg(args, void *);
-		end = va_arg(args, void *);
-		search(memory, start, end);
-	}
-}
-
 static void sweep(void * memory)
 {
-	header * h = memory;
-	while (!is_end(h))
+	header * h = first_header(memory);
+	while (!is_end(memory, h))
 	{
 		if (!h->gc_mark)
 			release(memory, &h[1], false); // shouldn't need to clear references
@@ -149,38 +111,28 @@ void tmmh_gc(void * memory, void * roots[], int num_roots)
 //	check_memory();
 }
 
-void tmmh_gc_conservative(void * memory, int num_ranges, ...)
-{
-	va_list args;
-	va_start(args, num_ranges);
-
-	clear_marks(memory);
-	mark_conservative(memory, num_ranges, args);
-	sweep(memory);
-}
-
 void tmmh_compact(void * memory, int num_ranges, ...)
 {
 	va_list args;
 
-	header * h = memory;
-	while (!is_end(h))
+	header * h = first_header(memory);
+	while (!is_end(memory, h))
 	{
 		if (!h->in_use)
 		{
 			header * next_h = next(h);
 
-			while(!is_end(next_h) && !next_h->in_use && h->size + next_h->size <= TMMH_MAX_SIZE)
+			while(!is_end(memory, next_h) && !next_h->in_use && h->size + next_h->size <= TMMH_MAX_SIZE)
 			{
 				// merge the two
 				h->size += next_h->size;
 				next_h = next(h);
 			}
 
-			if (is_end(next_h))
+			if (is_end(memory, next_h))
 			{
 				// empty slot at end of heap; shorten heap size
-				mark_end(h);
+				mark_end(memory, h);
 				return;
 			}
 
@@ -197,14 +149,14 @@ void tmmh_compact(void * memory, int num_ranges, ...)
 				// (swapping two adjacent places has no size requirements)
 				do {
 					next_h = next(next_h);
-				} while (!is_end(next_h) && (!next_h->in_use || next_h->preserve || h->size < next_h->size));
+				} while (!is_end(memory, next_h) && (!next_h->in_use || next_h->preserve || h->size < next_h->size));
 
 				// now the gap at the given point is simply the diff
 				// between the available space and portion we will use after the move.
 				gap_size -= next_h->size;
 			}
 
-			if (!is_end(next_h))
+			if (!is_end(memory, next_h))
 			{
 				// swap places
 				// using memmove because it guarantees to work on overlap

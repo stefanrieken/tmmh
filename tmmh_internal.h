@@ -76,25 +76,43 @@ typedef struct packed header {
 #define TMMH_MAX_SIZE UINT32_MAX
 #endif
 
+typedef struct mem_header {
+	size_t size;
+	header * end_marker;
+} mem_header;
+
 extern pif * pifs;
 
 /**
  * Inline helper functions.
  */
-static inline void mark_end(header * h)
+static inline header * first_header(void * memory) {
+	return (header*) &((mem_header *) memory)[1];
+}
+
+static inline void mark_end(mem_header * m, header * h)
 {
+#ifdef TMMH_USE_END_MARKER
+	m->end_marker = h;
+	h->size = 0; // this is needed in loops where the last item becomes the new end marker
+#else
 	h->in_use = false;
 	h->size = 0;
 	h->preserve = false;
 	h->bytes_unused = 1;
+#endif
 }
 
-static inline bool is_end(header * h)
+static inline bool is_end(mem_header * m, header * h)
 {
+#ifdef TMMH_USE_END_MARKER
+	return m->end_marker == h;
+#else
 	return h->in_use == false &&
 	h->size == 0 &&
 	h->preserve == false &&
 	h->bytes_unused == 1;
+#endif
 }
 
 static inline void mark_available(header * h, tmmh_size_t full_size_in_words)

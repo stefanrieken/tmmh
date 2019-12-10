@@ -11,7 +11,7 @@ static void assert(char * expected, char * explain)
 	char buffer[255];
 	tmmh_visualize(memory, buffer);
 	printf("%-30s: %s", explain, buffer);
-	if (strcmp(expected,buffer) != 0) printf("E!");
+	if (strcmp(expected,buffer) != 0) printf("E! %s\n", expected);
 	printf("\n");
 }
 
@@ -21,7 +21,7 @@ int main (int argc, char ** argv)
 		pif_none,
 		pif_ptr
 	};
-	void * stack_start = pifs;
+	void * stack_start = &pifs;
 
 	memory = tmmh_init(400, pifs);
 
@@ -37,10 +37,10 @@ int main (int argc, char ** argv)
 	assert("0..0..", "allocate two untyped slots");
 	val2 = reallocate(memory, val2, 12, false);
 	assert("0..0...", "resize slot 2");
-	void ** val3 = (void **) allocate(memory, 8, false); // allows for a max 64-bit pointer to be stored
+	void ** volatile val3 = (void **) allocate(memory, 8, false); // allows for a max 64-bit pointer to be stored
 	// (which keeps this test stable)
 
-	set_type(val3, 1); // pointer
+	set_type((void **) val3, 1); // pointer
 
 	assert("0..0...1..", "allocate third and set type");
 	val2 = release(memory, val2, false);
@@ -63,7 +63,9 @@ int main (int argc, char ** argv)
 	tmmh_gc(memory, (void *) &val3, 1); // should preserve val3 and the pointed-to val4_2
 	assert("v......1..0....", "GC preserving from val3");
 
-	void * val5 = allocate(memory, 25, false);
+	// Because we also move pointers in the current stack frame,
+	// we have to strew 'volatile' around like crazy
+	void * volatile val5 = allocate(memory, 25, false);
 	assert("v......1..0....0.......", "allocate another large one");
 
 	release(memory, val4_2, true);
@@ -71,17 +73,18 @@ int main (int argc, char ** argv)
 	assert("v......1..v....0.......", "release pointer to same object");
 
 	*val3 = val5;
+
+	void * stack_end = &stack_end;
 	void * old_val5 = val5;
+	tmmh_compact(memory, 1, stack_start, stack_end);
+	assert("1..0.......", "compact");
+	if (*val3 != val5) printf("E! Pointer did not relocate %p, %p\n", *val3, val5);
+	if (val5 == old_val5) printf("E! Pointer did not move\n");
+
 	void * val6 = NULL;
 	void * val7 = NULL;
 	void * val8 = NULL;
 	void * val9 = NULL;
-
-	void * stack_end = old_val5;
-	tmmh_compact(memory, 1, stack_start, stack_end);
-	assert("1..0.......", "compact");
-	if (*val3 != val5) printf("E! Pointer did not relocate\n");
-	if (val5 == old_val5) printf("E! Pointer did not move\n");
 
 	val6 = allocate(memory, 2, true); // permanent
 	assert("1..0.......0*", "allocate permanent");

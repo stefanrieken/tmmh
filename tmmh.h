@@ -46,7 +46,6 @@ bool in_use(void * data);
  * Everything that can be reached from the roots will be 'saved' from GC.
  */
 void tmmh_gc(void * memory, void * roots[], int num_roots);
-void tmmh_gc_conservative (void * memory, int num_ranges, ...);
 
 /**
  * Heap compaction.
