@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdarg.h>
 
 // printf debugging only
 //#include <stdio.h>
@@ -87,6 +88,44 @@ static void mark(void * roots[], int num_roots)
 		mark_and_follow(roots[i]);
 }
 
+static void search(void * memory, void * start, void * end) {
+	for(void * i = start; i<end; i++) {
+		void * maybe_pointer = *((void **) i);
+		if(maybe_pointer > start && maybe_pointer < end) {
+			// potential pointer; mark related header
+			header * h = memory;
+			while (!is_end(h)) {
+				header * next_h = next(h);
+				if (maybe_pointer > (void*) h && maybe_pointer < (void*) next_h) {
+					h->gc_mark = true;
+					break;
+				}
+				h = next_h;
+			}
+		}
+	}
+}
+
+static void mark_conservative(void * memory, int num_ranges, ...) {
+	va_list args;
+	va_start(args, num_ranges);
+
+	void * start = memory;
+	void * end = memory;
+	while (!is_end(end)) {
+		end = next(((header*) end));
+	}
+
+	// first search self
+	search(memory, start, end);
+	// then search other ranges offered
+	for (int i=0; i<num_ranges; i++) {
+		start = va_arg(args, void *);
+		end = va_arg(args, void *);
+		search(memory, start, end);
+	}
+}
+
 static void sweep(void * memory)
 {
 	header * h = memory;
@@ -110,8 +149,20 @@ void tmmh_gc(void * memory, void * roots[], int num_roots)
 //	check_memory();
 }
 
-void tmmh_compact(void * memory, void ** stack_ptrs[], int num_ptrs)
+void tmmh_gc_conservative(void * memory, int num_ranges, ...)
 {
+	va_list args;
+	va_start(args, num_ranges);
+
+	clear_marks(memory);
+	mark_conservative(memory, num_ranges, args);
+	sweep(memory);
+}
+
+void tmmh_compact(void * memory, int num_ranges, ...)
+{
+	va_list args;
+
 	header * h = memory;
 	while (!is_end(h))
 	{
@@ -170,9 +221,19 @@ void tmmh_compact(void * memory, void ** stack_ptrs[], int num_ptrs)
 				void * new_value = &h[1];
 				update_pointers(memory, old_value, new_value);
 
-				for (int i=0;i<num_ptrs;i++)
-					if (*stack_ptrs[i] == old_value)
-						*stack_ptrs[i] = new_value;
+				// update stack, by means of stabs in the dark...
+				va_start(args, num_ranges);
+				for (int i=0; i<num_ranges; i++) {
+					void ** start = va_arg(args, void **);
+					void ** end = va_arg(args, void **);
+					int direction = start > end ? -1 : 1;
+					for(void ** stack_stab = start; stack_stab != end+direction; stack_stab+=direction) {
+						if (*stack_stab == old_value) {
+							*stack_stab = new_value;
+						}
+					}
+				}
+				va_end(args);
 			}
 
 /*		} else {

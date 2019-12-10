@@ -21,6 +21,7 @@ int main (int argc, char ** argv)
 		pif_none,
 		pif_ptr
 	};
+	void * stack_start = pifs;
 
 	memory = tmmh_init(400, pifs);
 
@@ -76,8 +77,8 @@ int main (int argc, char ** argv)
 	void * val8 = NULL;
 	void * val9 = NULL;
 
-	void ** stack_ptrs[] = {&val1, &val2, (void **) &val3, &val4, &val4_2, &val5, &val6, &val7, &val8, &val9};
-	tmmh_compact(memory, stack_ptrs, 9);
+	void * stack_end = old_val5;
+	tmmh_compact(memory, 1, stack_start, stack_end);
 	assert("1..0.......", "compact");
 	if (*val3 != val5) printf("E! Pointer did not relocate\n");
 	if (val5 == old_val5) printf("E! Pointer did not move\n");
@@ -94,6 +95,7 @@ int main (int argc, char ** argv)
 	void * roots[] = {val5, val7, val9};
 	tmmh_gc(memory, roots, 3);
 	assert("v..0.......0*0.v...0....", "gc using 3 roots");
-	tmmh_compact(memory, stack_ptrs, 7);
+	stack_end = &roots[2];
+	tmmh_compact(memory, 1, stack_start, stack_end);
 	assert("0.......0.v0*0....", "compact retaining permanent"); // notice val7 jumped over permanent val6
 }

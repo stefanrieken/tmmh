@@ -46,10 +46,11 @@ bool in_use(void * data);
  * Everything that can be reached from the roots will be 'saved' from GC.
  */
 void tmmh_gc(void * memory, void * roots[], int num_roots);
+void tmmh_gc_conservative (void * memory, int num_ranges, ...);
 
 /**
  * Heap compaction.
  *
  * Updates pointers in heap; updates any pointers in stack that are given as arguments.
  */
-void tmmh_compact(void * memory, void ** stack_ptrs[], int num_prts);
+ void tmmh_compact(void * memory, int num_ranges, ...);
