@@ -11,7 +11,7 @@
 /**
  * Visualize.
  */
-void tmmh_visualize(char * buffer)
+void tmmh_visualize(void * memory, char * buffer)
 {
 	int i=0;
 	header * h = memory;
@@ -30,12 +30,11 @@ void tmmh_visualize(char * buffer)
 	buffer[i] = 0;
 }
 
-uint64_t tmmh_memsize() {
-#ifndef TMMH_USE_END_MARKER
+uint64_t tmmh_memsize(void * memory) {
 	header * end_marker = memory;
 	while(!is_end(end_marker)) {
 		end_marker = next(end_marker);
 	}
-#endif
-	return end_marker - memory;
+
+	return end_marker - (header*) memory;
 }

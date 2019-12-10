@@ -10,7 +10,7 @@ typedef bool (* pif) (void * data, int n, void *** result);
  * pifs may be NULL.
  * If not, it should contain a pointer identifying function (pif) for each type number in use.
  */
-void tmmh_init(size_t memsize, pif pifs[]);
+void * tmmh_init(size_t memsize, pif pfs[]);
 
 /**
  * Standard pifs for data containing no pointers at all, resp. data of type 'pointer'.
@@ -24,13 +24,13 @@ extern bool pif_ptr(void * data, int n, void *** result);
 // preserve == don't GC or move when heap compressing
 // use whenever anything on stack requires survival of GC or heap compaction
 // but don't expect the heap compactor to work optimal around permenanent values
-extern void * allocate(uint32_t size, bool preserve);
-extern void * release(void * data, bool clear_references);
-extern void * reallocate (void * data, uint32_t size, bool update_references);
+extern void * allocate(void * memory, uint32_t size, bool preserve);
+extern void * release(void * memory, void * data, bool clear_references);
+extern void * reallocate (void * memory, void * data, uint32_t size, bool update_references);
 
 /** Visualize memory into buffer. Buffer should be at least memory size in 'words'+1 */
-extern void tmmh_visualize(char * buffer);
-uint64_t tmmh_memsize();
+extern void tmmh_visualize(void * memory, char * buffer);
+uint64_t tmmh_memsize(void * memory);
 
 /**
  * Types.
@@ -45,11 +45,11 @@ bool in_use(void * data);
  *
  * Everything that can be reached from the roots will be 'saved' from GC.
  */
-void tmmh_gc(void * roots[], int num_roots);
+void tmmh_gc(void * memory, void * roots[], int num_roots);
 
 /**
  * Heap compaction.
  *
  * Updates pointers in heap; updates any pointers in stack that are given as arguments.
  */
-void tmmh_compact(void ** stack_ptrs[], int num_prts);
+void tmmh_compact(void * memory, void ** stack_ptrs[], int num_prts);

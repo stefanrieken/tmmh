@@ -28,7 +28,7 @@
 	printf("Safe and sound here\n");
 }*/
 
-static void clear()
+static void clear_marks(void * memory)
 {
 	header * h = memory;
 	while (!is_end(h))
@@ -70,7 +70,7 @@ static void mark_and_follow(void * data)
 	}
 }*/
 
-static void mark_preserved() {
+static void mark_preserved(void * memory) {
 	header * h = memory;
 	while (!is_end(h))
 	{
@@ -87,30 +87,30 @@ static void mark(void * roots[], int num_roots)
 		mark_and_follow(roots[i]);
 }
 
-static void sweep()
+static void sweep(void * memory)
 {
 	header * h = memory;
 	while (!is_end(h))
 	{
 		if (!h->gc_mark)
-			release(&h[1], false); // shouldn't need to clear references
+			release(memory, &h[1], false); // shouldn't need to clear references
 
 		h = next(h);
 	}
 }
 
-void tmmh_gc(void * roots[], int num_roots)
+void tmmh_gc(void * memory, void * roots[], int num_roots)
 {
 //	check_memory();
-	clear();
+	clear_marks(memory);
 //	preserve_roots(roots, num_roots);
-	mark_preserved();
+	mark_preserved(memory);
 	mark(roots, num_roots);
-	sweep();
+	sweep(memory);
 //	check_memory();
 }
 
-void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
+void tmmh_compact(void * memory, void ** stack_ptrs[], int num_ptrs)
 {
 	header * h = memory;
 	while (!is_end(h))
@@ -168,7 +168,7 @@ void tmmh_compact(void ** stack_ptrs[], int num_ptrs)
 				// update pointers
 				void * old_value = &next_h[1];
 				void * new_value = &h[1];
-				update_pointers(old_value, new_value);
+				update_pointers(memory, old_value, new_value);
 
 				for (int i=0;i<num_ptrs;i++)
 					if (*stack_ptrs[i] == old_value)

@@ -15,7 +15,7 @@
 
 #ifdef TMMH_HEADER_16
 /* 16-bit aligned header with max 8-bit inline value */
-typedef struct header {
+typedef struct packed header {
 	union {
 		uint16_t size : 9; // 2-byte aligned, so multiply by 2 (so max=1024)
 		uint16_t value : 9; // if flagged as 'direct_value'
@@ -34,7 +34,7 @@ typedef struct header {
 #endif
 
 #ifdef TMMH_HEADER_32
-typedef struct header {
+typedef struct packed header {
 	union {
 		uint16_t size : 16; // 4-byte aligned, so multiply by 4 (so max=256k)
 		uint16_t value : 16;  // if flagged as 'direct_value'
@@ -55,7 +55,7 @@ typedef struct header {
 #endif
 
 #ifdef TMMH_HEADER_64
-typedef struct header {
+typedef struct packed header {
 	union {
 		uint32_t size : 32; // 8-byte aligned, so multiply by 8 (so max=32GB)
 		uint32_t value : 32;  // if flagged as 'direct_value'
@@ -78,41 +78,23 @@ typedef struct header {
 
 extern pif * pifs;
 
-extern header * memory;
-
-#ifdef TMMH_USE_END_MARKER
-extern header * end_marker;
-#endif
-
 /**
  * Inline helper functions.
  */
 static inline void mark_end(header * h)
 {
-#ifdef TMMH_USE_END_MARKER
-	end_marker = h;
-	 // explicitly set size to zero, preventing the situation where
-	 // the current header in a loop was freed to become the end marker,
-	 // and then next(h) is called once more.
-	h->size = 0;
-#else
 	h->in_use = false;
 	h->size = 0;
 	h->preserve = false;
 	h->bytes_unused = 1;
-#endif
 }
 
 static inline bool is_end(header * h)
 {
-#ifdef TMMH_USE_END_MARKER
-	return h == end_marker;
-#else
 	return h->in_use == false &&
 	h->size == 0 &&
 	h->preserve == false &&
 	h->bytes_unused == 1;
-#endif
 }
 
 static inline void mark_available(header * h, tmmh_size_t full_size_in_words)
@@ -140,4 +122,4 @@ static inline header * find_header(void * data)
 /**
  * Library-local functions.
  */
-extern void update_pointers(void * old_value, void * new_value);
+extern void update_pointers(void * memory, void * old_value, void * new_value);

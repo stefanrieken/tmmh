@@ -10,19 +10,15 @@
 
 pif * pifs;
 
-header * memory;
-#ifdef TMMH_USE_END_MARKER
-header * end_marker;
-#endif
-
 /**
  * Init.
  */
-void tmmh_init(size_t memsize, pif pfs[])
+void * tmmh_init(size_t memsize, pif pfs[])
 {
 	pifs = pfs;
-	memory = malloc(memsize);
+	header * memory = malloc(memsize);
 	mark_end(memory);
+	return memory;
 }
 
 /**
@@ -42,15 +38,10 @@ static tmmh_size_t calc_full_size(uint32_t size)
 	return full_size_in_words+1;
 }
 
-static header * allocate_internal (tmmh_size_t full_size_in_words, uint32_t size)
+static header * allocate_internal (void * memory, tmmh_size_t full_size_in_words, uint32_t size)
 {
-#if defined(TMMH_OPTIMIZE_SIZE) || !defined(TMMH_USE_END_MARKER)
 	header * h = memory;
-#else
-	// The cost of walking is incredibly high.
-	// Just appending new items by default gives a huge speedup.
-	header * h = end_marker;
-#endif
+
 	while (!is_end(h))
 	{
 		header * next_h = next(h);
@@ -87,15 +78,15 @@ static header * allocate_internal (tmmh_size_t full_size_in_words, uint32_t size
 	return h;
 }
 
-void * allocate(uint32_t size, bool preserve)
+void * allocate(void * memory, uint32_t size, bool preserve)
 {
 	tmmh_size_t full_size_in_words = calc_full_size(size);
-	header * h = allocate_internal(full_size_in_words, size);
+	header * h = allocate_internal(memory, full_size_in_words, size);
 	h->preserve = preserve;
 	return &h[1]; // location of value
 }
 
-static void release_internal(header * h)
+static void release_internal(void * memory, header * h)
 {
 	tmmh_size_t total_size_in_words = h->size;
 
@@ -116,7 +107,7 @@ static void release_internal(header * h)
 	}
 }
 
-library_local void update_pointers(void * old_value, void * new_value)
+library_local void update_pointers(void * memory, void * old_value, void * new_value)
 {
 	header * h = memory;
 	while (!is_end(h))
@@ -137,19 +128,19 @@ library_local void update_pointers(void * old_value, void * new_value)
 }
 
 // always returns null, as a service: bla = release(bla); // bla is null
-void * release(void * data, bool clear_references)
+void * release(void * memory, void * data, bool clear_references)
 {
 	// Allow blindly releasing something that was never actually allocated
 	// but was properly marked as NULL.
 	if (data == NULL) return NULL;
 
 	header * h = find_header(data);
-	release_internal(h);
-	if (clear_references) update_pointers(data, NULL);
+	release_internal(memory, h);
+	if (clear_references) update_pointers(memory, data, NULL);
 	return NULL;
 }
 
-void * reallocate_internal (void * data, uint32_t size)
+void * reallocate_internal (void * memory, void * data, uint32_t size)
 {
 	tmmh_size_t full_size_in_words = calc_full_size(size);
 
@@ -188,20 +179,20 @@ void * reallocate_internal (void * data, uint32_t size)
 		else
 		{
 			// move
-			header * new_h = allocate_internal(full_size_in_words, size);
+			header * new_h = allocate_internal(memory, full_size_in_words, size);
 			memcpy (new_h, h, h->size * header_size);
 			new_h->size = full_size_in_words;
 			new_h->bytes_unused = (header_size - (size % header_size)) % header_size;
-			release_internal(h);
+			release_internal(memory, h);
 			return &new_h[1];
 		}
 	}
 
 }
 
-void * reallocate (void * data, uint32_t size, bool update_references)
+void * reallocate (void * memory, void * data, uint32_t size, bool update_references)
 {
-	void * new_data = reallocate_internal(data, size);
-	if (update_references) update_pointers(data, new_data);
+	void * new_data = reallocate_internal(memory, data, size);
+	if (update_references) update_pointers(memory, data, new_data);
 	return new_data;
 }
